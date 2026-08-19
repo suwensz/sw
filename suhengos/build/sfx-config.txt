@@ -1,0 +1,10 @@
+;!@Install@!UTF-8!
+Title="素衡OS"
+BeginPrompt="是否启动素衡OS？"
+ExtractTitle="正在启动素衡OS..."
+ExtractDialogText="正在解压应用程序，请稍候..."
+GUIFlags="8+32+64+256+4096"
+ExtractPathText="素衡OS"
+OverwriteMode="2"
+RunProgram="素衡OS.exe"
+;!@InstallEnd@!
