@@ -24,6 +24,8 @@ const router = createRouter({
         { path: 'products', name: 'AdminProducts', component: () => import('./views/ProductsPage.vue'), meta: { title: '商品管理' } },
         { path: 'orders', name: 'AdminOrders', component: () => import('./views/OrdersPage.vue'), meta: { title: '订单管理' } },
         { path: 'content', name: 'AdminContent', component: () => import('./views/ContentPage.vue'), meta: { title: '多语言内容审核' } },
+        { path: 'rbac', name: 'AdminRbac', component: () => import('./views/RbacPage.vue'), meta: { title: 'RBAC 权限矩阵' } },
+        { path: 'audit', name: 'AdminAudit', component: () => import('./views/AuditLogPage.vue'), meta: { title: '审计日志' } },
         { path: 'settings', name: 'AdminSettings', component: () => import('./views/SettingsPage.vue'), meta: { title: '系统设置' } },
       ],
     },

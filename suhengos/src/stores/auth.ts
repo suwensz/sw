@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { UserInfo, LoginPayload, RegisterPayload, HealthProfile } from '@/types'
 import { getLocale } from '@/i18n'
+import { authApi } from '@/api'
 
 const LOGIN_FAILED_MSG: Record<string, string> = {
   zh: '账号或密码错误',
@@ -18,73 +19,6 @@ function loginFailedMsg() {
 
 const STORAGE_KEY = 'qh_auth_user'
 const TOKEN_KEY = 'qh_auth_token'
-
-// 开发环境测试账号（仅 DEV 环境生效）
-const DEV_TEST_ACCOUNTS: Array<{ email: string; password: string; user: UserInfo }> = [
-  {
-    email: 'dev_user@coze.dev',
-    password: 'dev123456',
-    user: {
-      id: 'dev-001',
-      email: 'dev_user@coze.dev',
-      name: '岐黄体验官',
-      nickname: '岐黄体验官',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=qihuang',
-      role: 'user',
-      locale: 'zh',
-      healthProfile: {
-        gender: 'female',
-        age: 32,
-        height: 165,
-        weight: 55,
-        constitution: 'qiDeficiency',
-      },
-      createdAt: '2024-01-01T00:00:00Z',
-    },
-  },
-  {
-    email: 'dev_admin@coze.dev',
-    password: 'dev123456',
-    user: {
-      id: 'dev-admin-001',
-      email: 'dev_admin@coze.dev',
-      name: '系统管理员',
-      nickname: '系统管理员',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=suheng-admin',
-      role: 'admin',
-      locale: 'zh',
-      createdAt: '2024-01-01T00:00:00Z',
-    },
-  },
-  {
-    email: 'dev_ops@coze.dev',
-    password: 'dev123456',
-    user: {
-      id: 'dev-ops-001',
-      email: 'dev_ops@coze.dev',
-      name: '跨境运营员',
-      nickname: '跨境运营员',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=suheng-ops',
-      role: 'ops',
-      locale: 'zh',
-      createdAt: '2024-01-01T00:00:00Z',
-    },
-  },
-  {
-    email: 'dev_dev@coze.dev',
-    password: 'dev123456',
-    user: {
-      id: 'dev-dev-001',
-      email: 'dev_dev@coze.dev',
-      name: '研发工程师',
-      nickname: '研发工程师',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=suheng-dev',
-      role: 'dev',
-      locale: 'zh',
-      createdAt: '2024-01-01T00:00:00Z',
-    },
-  },
-]
 
 function loadUser(): UserInfo | null {
   try {
@@ -126,77 +60,15 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(payload: LoginPayload): Promise<{ success: boolean; message?: string }> {
     loading.value = true
     try {
-      // 模拟网络延迟
-      await new Promise((r) => setTimeout(r, 800))
-
-      // 开发环境测试账号
-      if (payload.method === 'password') {
-        const devAccount = DEV_TEST_ACCOUNTS.find(
-          (a) => a.email === payload.account && a.password === payload.password,
-        )
-        if (devAccount) {
-          setAuth(devAccount.user, 'dev-token-' + Date.now())
-          return { success: true }
-        }
+      const res = await authApi.login(payload)
+      setAuth(res.user, res.token)
+      return { success: true }
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number; data?: { message?: string } } }
+      if (error?.response?.status === 400 || error?.response?.status === 401) {
+        return { success: false, message: loginFailedMsg() }
       }
-
-      // 验证码登录：任意6位数字验证码均可通过（Mock）
-      if (payload.method === 'code' && payload.code && payload.code.length === 6) {
-        const newUser: UserInfo = {
-          id: 'u-' + Date.now(),
-          email: payload.account.includes('@') ? payload.account : '',
-          phone: payload.account.includes('@') ? undefined : payload.account,
-          name: payload.account.includes('@') ? payload.account.split('@')[0] : payload.account,
-          nickname: payload.account.includes('@') ? payload.account.split('@')[0] : payload.account,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(payload.account)}`,
-          role: 'user',
-          locale: getLocale(),
-          createdAt: new Date().toISOString(),
-        }
-        setAuth(newUser, 'token-' + Date.now())
-        return { success: true }
-      }
-
-      // 密码登录：已注册用户（Mock：任意6位以上密码可登录）
-      if (payload.method === 'password' && payload.password && payload.password.length >= 6) {
-        const existing = localStorage.getItem('qh_registered_' + payload.account)
-        if (existing) {
-          const regData = JSON.parse(existing) as RegisterPayload
-          if (regData.password === payload.password) {
-            const newUser: UserInfo = {
-              id: 'u-' + Date.now(),
-              email: payload.account.includes('@') ? payload.account : '',
-              phone: payload.account.includes('@') ? undefined : payload.account,
-              name: regData.nickname,
-              nickname: regData.nickname,
-              avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(payload.account)}`,
-              role: 'user',
-              locale: getLocale(),
-              healthProfile: regData.healthProfile,
-              createdAt: new Date().toISOString(),
-            }
-            setAuth(newUser, 'token-' + Date.now())
-            return { success: true }
-          }
-          return { success: false, message: loginFailedMsg() }
-        }
-        // 未注册但格式正确，自动创建（Mock 便利）
-        const newUser: UserInfo = {
-          id: 'u-' + Date.now(),
-          email: payload.account.includes('@') ? payload.account : '',
-          phone: payload.account.includes('@') ? undefined : payload.account,
-          name: payload.account.includes('@') ? payload.account.split('@')[0] : payload.account,
-          nickname: payload.account.includes('@') ? payload.account.split('@')[0] : payload.account,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(payload.account)}`,
-          role: 'user',
-          locale: getLocale(),
-          createdAt: new Date().toISOString(),
-        }
-        setAuth(newUser, 'token-' + Date.now())
-        return { success: true }
-      }
-
-      return { success: false, message: loginFailedMsg() }
+      return { success: false, message: (error?.response?.data?.message) || loginFailedMsg() }
     } finally {
       loading.value = false
     }
@@ -205,65 +77,64 @@ export const useAuthStore = defineStore('auth', () => {
   async function register(payload: RegisterPayload): Promise<{ success: boolean; message?: string }> {
     loading.value = true
     try {
-      await new Promise((r) => setTimeout(r, 1000))
-      // 保存注册信息
-      localStorage.setItem('qh_registered_' + payload.account, JSON.stringify(payload))
-      const newUser: UserInfo = {
-        id: 'u-' + Date.now(),
-        email: payload.account.includes('@') ? payload.account : '',
-        phone: payload.account.includes('@') ? undefined : payload.account,
-        name: payload.nickname,
-        nickname: payload.nickname,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(payload.nickname)}`,
-        role: 'user',
-        locale: getLocale(),
-        healthProfile: payload.healthProfile,
-        createdAt: new Date().toISOString(),
-      }
-      setAuth(newUser, 'token-' + Date.now())
+      const res = await authApi.register(payload)
+      setAuth(res.user, res.token)
       return { success: true }
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } }
+      return { success: false, message: error?.response?.data?.message || '注册失败' }
     } finally {
       loading.value = false
     }
   }
 
-  async function sendVerificationCode(_account: string): Promise<{ success: boolean }> {
-    await new Promise((r) => setTimeout(r, 500))
-    return { success: true }
+  async function sendVerificationCode(account: string): Promise<{ success: boolean }> {
+    try {
+      await authApi.sendCode(account)
+      return { success: true }
+    } catch {
+      return { success: false }
+    }
   }
 
   async function thirdPartyLogin(provider: string): Promise<{ success: boolean }> {
     loading.value = true
     try {
-      await new Promise((r) => setTimeout(r, 800))
-      const newUser: UserInfo = {
-        id: provider + '-' + Date.now(),
-        email: `user@${provider}.com`,
-        name: `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`,
-        nickname: `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${provider}`,
-        role: 'user',
-        locale: getLocale(),
-        createdAt: new Date().toISOString(),
-      }
-      setAuth(newUser, 'token-' + provider + '-' + Date.now())
+      const res = await authApi.thirdPartyLogin(provider)
+      setAuth(res.user, res.token)
       return { success: true }
+    } catch {
+      return { success: false }
     } finally {
       loading.value = false
     }
   }
 
-  function updateHealthProfile(profile: HealthProfile) {
+  async function updateHealthProfile(profile: HealthProfile) {
     if (user.value) {
-      user.value.healthProfile = { ...user.value.healthProfile, ...profile }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user.value))
+      try {
+        const updated = await authApi.updateHealthProfile(profile)
+        user.value = updated
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+      } catch {
+        // 降级：本地更新
+        user.value.healthProfile = { ...user.value.healthProfile, ...profile }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(user.value))
+      }
     }
   }
 
-  function updateProfile(partial: Partial<UserInfo>) {
+  async function updateProfile(partial: Partial<UserInfo>) {
     if (user.value) {
-      user.value = { ...user.value, ...partial }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user.value))
+      try {
+        const updated = await authApi.updateProfile(partial)
+        user.value = updated
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+      } catch {
+        // 降级：本地更新
+        user.value = { ...user.value, ...partial }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(user.value))
+      }
     }
   }
 

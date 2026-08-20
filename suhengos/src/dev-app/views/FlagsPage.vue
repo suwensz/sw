@@ -24,8 +24,10 @@ const flagDefs: FlagDef[] = [
   { key: 'chat.ai.enabled', label: 'AI 对话', desc: '客户端 AI 助手会话功能', scope: 'client', default: true },
   { key: 'ecom.rtl.auto', label: 'RTL 自动适配', desc: '阿拉伯语界面自动切换 RTL 布局', scope: 'all', default: true },
   { key: 'ecom.number.localize', label: '数字本地化', desc: '各语种数字/货币格式本地化渲染', scope: 'all', default: true },
-  { key: 'ops.qingflow.sync', label: '轻流数据同步', desc: '运营端与轻流 A/B/C 应用数据打通（规划中）', scope: 'ops', default: false },
-  { key: 'admin.audit.log', label: '管理端审计日志', desc: '记录管理端敏感操作（规划中）', scope: 'admin', default: false },
+  { key: 'ops.qingflow.sync', label: '轻流数据同步', desc: '运营端与轻流 A/B/C 应用数据打通', scope: 'ops', default: true },
+  { key: 'admin.audit.log', label: '管理端审计日志', desc: '记录管理端敏感操作（登录/改权限/审核等）', scope: 'admin', default: true },
+  { key: 'admin.rbac.matrix', label: 'RBAC 权限矩阵', desc: '角色×资源×操作的权限矩阵可视化', scope: 'admin', default: true },
+  { key: 'api.mock.fallback', label: 'API Mock 降级', desc: 'staging/prod 环境下 API 失败时回退到 Mock', scope: 'all', default: false },
   { key: 'mock.api.delay', label: 'Mock 延迟模拟', desc: 'Mock 请求统一附加网络延迟', scope: 'all', default: false },
 ]
 

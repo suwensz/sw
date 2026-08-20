@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-admin/
+dist-ops/
+dist-dev/
+dist_old_*/
+dist-admin_old_*/
+dist-ops_old_*/
+dist-dev_old_*/
+
+# Electron build output
+release/
+release-v*/
+release-v*/win-unpacked/
+
+# Auto-generated files (dts: false in vite config, not regenerated during build)
+src/auto-imports.d.ts
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Temp files
+*.tmp

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { refreshHttpConfig, currentEnv, isDevEnv } from '@/api'
 
 /**
  * 环境与日志（开发端）
@@ -45,7 +46,10 @@ const isDirty = computed(() => JSON.stringify(config) !== JSON.stringify(loadEnv
 function saveEnv() {
   localStorage.setItem(ENV_KEY, JSON.stringify(config))
   savedEnv.value = config.env
-  ElMessage.success(`环境配置已保存：${envPresets[config.env].label} → ${config.apiBaseUrl[config.env]}`)
+  // 刷新 axios 实例配置：重设 baseURL 和 Mock 适配器
+  refreshHttpConfig()
+  const mode = isDevEnv() ? 'Mock 适配器' : '真实 HTTP'
+  ElMessage.success(`环境已切换：${envPresets[config.env].label} → ${config.apiBaseUrl[config.env]}（${mode}）`)
 }
 
 function switchEnv(env: EnvName) {
@@ -169,7 +173,7 @@ const filteredLogs = computed(() =>
             <el-button size="small" type="primary" :disabled="!isDirty" @click="saveEnv">保存配置</el-button>
           </div>
 
-          <p class="panel-tip">配置写入 localStorage（qh_dev_env），供 axios 适配层按环境读取。</p>
+          <p class="panel-tip">配置写入 localStorage（qh_dev_env），axios 适配层按环境读取 baseURL，dev 环境自动启用 Mock 适配器。</p>
         </div>
       </el-col>
 

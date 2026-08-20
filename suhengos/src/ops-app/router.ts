@@ -25,6 +25,7 @@ const router = createRouter({
         { path: 'demand', name: 'Demand', component: () => import('@/views/ops/DemandPage.vue'), meta: { title: '需求分析' } },
         { path: 'creative', name: 'Creative', component: () => import('@/views/ops/CreativePage.vue'), meta: { title: '创意素材' } },
         { path: 'listing', name: 'Listing', component: () => import('@/views/ops/ListingPage.vue'), meta: { title: 'Listing 工作台' } },
+        { path: 'qingflow', name: 'QingFlow', component: () => import('./views/QingFlowPage.vue'), meta: { title: '轻流数据' } },
       ],
     },
     {

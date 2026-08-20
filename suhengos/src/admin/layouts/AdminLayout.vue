@@ -14,6 +14,8 @@ const menus = [
   { path: '/products', title: '商品管理', icon: 'Goods' },
   { path: '/orders', title: '订单管理', icon: 'List' },
   { path: '/content', title: '多语言内容审核', icon: 'DocumentChecked' },
+  { path: '/rbac', title: 'RBAC 权限矩阵', icon: 'Lock' },
+  { path: '/audit', title: '审计日志', icon: 'Tickets' },
   { path: '/settings', title: '系统设置', icon: 'Setting' },
 ]
 

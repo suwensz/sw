@@ -64,11 +64,12 @@ export default defineConfig(({ mode, command }) => {
       AutoImport({
         resolvers: [ElementPlusResolver()],
         imports: ['vue', 'vue-router', 'pinia'],
-        dts: isBuild ? 'src/auto-imports.d.ts' : false,
+        // dts 生成在 Windows 下偶发 EPERM（文件锁），构建时关闭不影响产物
+        dts: false,
       }),
       Components({
         resolvers: [ElementPlusResolver()],
-        dts: isBuild ? 'src/components.d.ts' : false,
+        dts: false,
       }),
     ],
     resolve: {

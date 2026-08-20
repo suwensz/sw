@@ -14,6 +14,7 @@ const menus = [
   { path: '/demand', title: '需求分析', icon: 'TrendCharts' },
   { path: '/creative', title: '创意素材', icon: 'Picture' },
   { path: '/listing', title: 'Listing 工作台', icon: 'Document' },
+  { path: '/qingflow', title: '轻流数据', icon: 'Connection' },
 ]
 
 const activeMenu = computed(() => '/' + String(route.path.split('/')[1] || 'competitor'))
