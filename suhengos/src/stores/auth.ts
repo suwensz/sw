@@ -42,6 +42,20 @@ const DEV_TEST_ACCOUNTS: Array<{ email: string; password: string; user: UserInfo
       createdAt: '2024-01-01T00:00:00Z',
     },
   },
+  {
+    email: 'dev_admin@coze.dev',
+    password: 'dev123456',
+    user: {
+      id: 'dev-admin-001',
+      email: 'dev_admin@coze.dev',
+      name: '系统管理员',
+      nickname: '系统管理员',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=suheng-admin',
+      role: 'admin',
+      locale: 'zh',
+      createdAt: '2024-01-01T00:00:00Z',
+    },
+  },
 ]
 
 function loadUser(): UserInfo | null {

@@ -1,6 +1,9 @@
 .workbuddy/
 node_modules/
 dist/
+dist-admin/
+dist-ops/
+dist-dev/
 release/
 *.local
 .DS_Store

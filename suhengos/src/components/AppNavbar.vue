@@ -36,11 +36,7 @@ const healthNavItems = computed(() => [
 
 const commerceNavItems = computed(() => [
   { name: 'Shop', label: t('nav.shop'), path: '/shop' },
-  { name: 'Competitor', label: t('nav.competitor'), path: '/ops/competitor' },
-  { name: 'Supply', label: t('nav.supply'), path: '/ops/supply' },
-  { name: 'Demand', label: t('nav.demand'), path: '/ops/demand' },
-  { name: 'Creative', label: t('nav.creative'), path: '/ops/creative' },
-  { name: 'Listing', label: t('nav.listing'), path: '/ops/listing' },
+  { name: 'Cart', label: t('nav.cart'), path: '/cart' },
 ])
 
 function isActive(path: string): boolean {

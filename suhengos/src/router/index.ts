@@ -40,11 +40,7 @@ const router = createRouter({
         { path: 'shop/:slug', name: 'ProductDetail', component: () => import('@/views/shop/ProductDetailPage.vue'), meta: { group: 'commerce' } },
         { path: 'cart', name: 'Cart', component: () => import('@/views/shop/CartPage.vue'), meta: { group: 'commerce' } },
         { path: 'checkout', name: 'Checkout', component: () => import('@/views/shop/CheckoutPage.vue'), meta: { group: 'commerce' } },
-        { path: 'ops/competitor', name: 'Competitor', component: () => import('@/views/ops/CompetitorPage.vue'), meta: { group: 'commerce' } },
-        { path: 'ops/supply', name: 'Supply', component: () => import('@/views/ops/SupplyPage.vue'), meta: { group: 'commerce' } },
-        { path: 'ops/demand', name: 'Demand', component: () => import('@/views/ops/DemandPage.vue'), meta: { group: 'commerce' } },
-        { path: 'ops/creative', name: 'Creative', component: () => import('@/views/ops/CreativePage.vue'), meta: { group: 'commerce' } },
-        { path: 'ops/listing', name: 'Listing', component: () => import('@/views/ops/ListingPage.vue'), meta: { group: 'commerce' } },
+        // 运营工具已迁移至独立运营端（:5200，src/ops-app）
 
         // 账户
         { path: 'profile', name: 'Profile', component: () => import('@/views/account/AccountPage.vue') },
