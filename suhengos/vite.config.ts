@@ -35,6 +35,21 @@ function resolveApp(mode: string): AppName {
 // 类型声明文件（构建时生成，dev 时忽略其变更避免重载循环）
 const DTS_FILES = ['**/src/auto-imports.d.ts', '**/src/components.d.ts']
 
+// dev server 根路径重写到当前端入口（rollup input 只影响构建，不影响 dev 路由）
+function portalEntryPlugin(entry: string) {
+  return {
+    name: 'portal-entry-rewrite',
+    configureServer(server: { middlewares: { use: (fn: (req: { url?: string }, res: unknown, next: () => void) => void) => void } }) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url === '/' || req.url?.startsWith('/?')) {
+          req.url = '/' + entry
+        }
+        next()
+      })
+    },
+  }
+}
+
 export default defineConfig(({ mode, command }) => {
   const appName = resolveApp(mode)
   const app = APPS[appName]
@@ -45,6 +60,7 @@ export default defineConfig(({ mode, command }) => {
     base: process.env.ELECTRON_BUILD ? './' : '/',
     plugins: [
       vue(),
+      portalEntryPlugin(app.entry),
       AutoImport({
         resolvers: [ElementPlusResolver()],
         imports: ['vue', 'vue-router', 'pinia'],

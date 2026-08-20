@@ -19,6 +19,10 @@ contextBridge.exposeInMainWorld('suhengOS', {
   openWatcher: () => ipcRenderer.send('watch:openWatcher'),
   hideWatcher: () => ipcRenderer.send('app:hideWatcher'),
 
+  // 多端工作台：登录后上报角色 / 请求打开对应端窗口
+  setRole: (role) => ipcRenderer.send('auth:setRole', role),
+  openPortal: (key) => ipcRenderer.send('portal:open', key),
+
   // 健康预警通知
   alert: (payload) => ipcRenderer.send('health:alert', payload),
 

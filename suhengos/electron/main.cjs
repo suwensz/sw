@@ -45,10 +45,50 @@ const APP_URL = isDev
   : pathToFileURL(path.join(__dirname, '../dist/index.html')).href
 log(`isDev: ${isDev}, APP_URL: ${APP_URL}`)
 
+// ====== 多端窗口定义（客户端 / 管理端 / 运营端 / 开发端）======
+// 开发态指向各端口 dev server；打包后加载 asar 内各端构建产物。
+// 每端使用独立 session partition，登录态互不污染。
+const PORTALS = {
+  admin: {
+    label: '管理端',
+    title: '素衡OS · 管理端',
+    port: 5100,
+    distDir: '../dist-admin',
+    partition: 'persist:portal-admin',
+    roles: ['admin'],
+    width: 1440,
+    height: 900,
+  },
+  ops: {
+    label: '运营端',
+    title: '素衡OS · 运营端',
+    port: 5200,
+    distDir: '../dist-ops',
+    partition: 'persist:portal-ops',
+    roles: ['ops', 'admin'],
+    width: 1440,
+    height: 900,
+  },
+  dev: {
+    label: '开发端',
+    title: '素衡OS · 开发端',
+    port: 5300,
+    distDir: '../dist-dev',
+    partition: 'persist:portal-dev',
+    roles: ['dev', 'admin'],
+    width: 1280,
+    height: 840,
+  },
+}
+
 let mainWindow = null
 let tray = null
 let watcherWindow = null
 let isQuitting = false
+
+// ====== 角色感知（渲染进程登录后上报，用于菜单可用性）======
+let currentRole = null
+const portalWindows = new Map()
 
 // ====== 应用图标（内联 SVG → NativeImage）======
 const ICON_SVG = `
@@ -212,14 +252,92 @@ function createWatcherWindow() {
   })
 }
 
-// ====== 系统托盘 ======
-function createTray() {
-  tray = new Tray(getAppIcon())
-  tray.setToolTip('素衡OS · Suheng OS')
+// ====== 多端窗口派发 ======
+// 按登录角色打开对应工作台窗口；同端窗口已存在时聚焦复用。
+function portalAllowed(key) {
+  const portal = PORTALS[key]
+  return !!portal && !!currentRole && portal.roles.includes(currentRole)
+}
 
-  const contextMenu = Menu.buildFromTemplate([
+function createPortalWindow(key) {
+  const portal = PORTALS[key]
+  if (!portal) return
+
+  const existing = portalWindows.get(key)
+  if (existing && !existing.isDestroyed()) {
+    existing.show()
+    existing.focus()
+    return
+  }
+
+  const targetUrl = isDev
+    ? `http://localhost:${portal.port}`
+    : pathToFileURL(path.join(__dirname, portal.distDir, 'index.html')).href
+
+  log(`createPortalWindow[${key}]: ${targetUrl} (role=${currentRole})`)
+
+  const win = new BrowserWindow({
+    width: portal.width,
+    height: portal.height,
+    minWidth: 1024,
+    minHeight: 700,
+    title: portal.title,
+    icon: getAppIcon(),
+    backgroundColor: '#faf8f3',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      // 独立会话分区，登录态 / localStorage 与客户端隔离
+      partition: portal.partition,
+    },
+  })
+
+  win.loadURL(targetUrl)
+
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    log(`portal[${key}] did-fail-load: code=${code} desc=${desc} url=${url}`)
+  })
+
+  // 外部链接用系统浏览器打开
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http')) {
+      shell.openExternal(url)
+      return { action: 'deny' }
+    }
+    return { action: 'allow' }
+  })
+
+  win.on('closed', () => {
+    portalWindows.delete(key)
+  })
+
+  portalWindows.set(key, win)
+}
+
+// ====== 系统托盘 ======
+function buildTrayMenu() {
+  return Menu.buildFromTemplate([
     { label: '打开素衡OS', click: () => mainWindow?.show() },
     { label: '手表监测悬浮窗', click: createWatcherWindow },
+    { type: 'separator' },
+    {
+      label: `管理端（admin）`,
+      enabled: portalAllowed('admin'),
+      click: () => createPortalWindow('admin'),
+    },
+    {
+      label: `运营端（ops）`,
+      enabled: portalAllowed('ops'),
+      click: () => createPortalWindow('ops'),
+    },
+    {
+      label: `开发端（dev）`,
+      enabled: portalAllowed('dev'),
+      click: () => createPortalWindow('dev'),
+    },
     { type: 'separator' },
     {
       label: '开机自启动',
@@ -238,8 +356,12 @@ function createTray() {
       },
     },
   ])
+}
 
-  tray.setContextMenu(contextMenu)
+function createTray() {
+  tray = new Tray(getAppIcon())
+  tray.setToolTip('素衡OS · Suheng OS')
+  tray.setContextMenu(buildTrayMenu())
   tray.on('click', () => {
     if (mainWindow?.isVisible()) {
       mainWindow.hide()
@@ -258,6 +380,29 @@ function buildMenu() {
         { label: '隐藏窗口', accelerator: 'CmdOrCtrl+H', click: () => mainWindow?.hide() },
         { type: 'separator' },
         { role: 'quit', label: '退出素衡OS' },
+      ],
+    },
+    {
+      label: '工作台',
+      submenu: [
+        {
+          label: '管理端 · :5100',
+          accelerator: 'CmdOrCtrl+Shift+A',
+          enabled: portalAllowed('admin'),
+          click: () => createPortalWindow('admin'),
+        },
+        {
+          label: '运营端 · :5200',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          enabled: portalAllowed('ops'),
+          click: () => createPortalWindow('ops'),
+        },
+        {
+          label: '开发端 · :5300',
+          accelerator: 'CmdOrCtrl+Shift+D',
+          enabled: portalAllowed('dev'),
+          click: () => createPortalWindow('dev'),
+        },
       ],
     },
     {
@@ -314,7 +459,28 @@ function buildMenu() {
 }
 
 // ====== IPC 通信 ======
+// 角色变更：渲染进程登录 / 退出后上报，主进程刷新菜单可用性
+function updateRole(role) {
+  currentRole = role || null
+  log(`auth:setRole → ${currentRole}`)
+  buildMenu()
+  if (tray) tray.setContextMenu(buildTrayMenu())
+}
+
 function registerIpcHandlers() {
+  ipcMain.on('auth:setRole', (_e, role) => {
+    updateRole(['user', 'admin', 'ops', 'dev'].includes(role) ? role : null)
+  })
+
+  // 渲染进程主动请求打开某端窗口（仍受角色校验约束）
+  ipcMain.on('portal:open', (_e, key) => {
+    if (!portalAllowed(key)) {
+      log(`portal:open denied for key=${key} role=${currentRole}`)
+      return
+    }
+    createPortalWindow(key)
+  })
+
   ipcMain.handle('app:getInfo', () => ({
     version: app.getVersion(),
     electron: process.versions.electron,

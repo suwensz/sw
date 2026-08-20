@@ -8,7 +8,8 @@ export interface UserInfo {
   name: string
   nickname: string
   avatar: string
-  role: 'user' | 'admin'
+  /** user 普通用户 / admin 管理员 / ops 运营 / dev 开发 */
+  role: 'user' | 'admin' | 'ops' | 'dev'
   locale: string
   healthProfile?: HealthProfile
   createdAt: string

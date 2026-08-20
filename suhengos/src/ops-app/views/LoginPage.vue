@@ -14,7 +14,7 @@ function onLoginSuccess() {
   <PortalLogin
     portal-name="运营端"
     subtitle="跨境电商运营工作台：竞品 / 供应链 / 需求 / 创意 / Listing"
-    dev-hint="dev_user@coze.dev / dev123456"
+    dev-hint="dev_ops@coze.dev / dev123456"
     @success="onLoginSuccess"
   />
 </template>

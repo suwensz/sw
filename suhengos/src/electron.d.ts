@@ -20,6 +20,10 @@ export interface SuhengOSAPI {
   close: () => void
   openWatcher: () => void
   hideWatcher: () => void
+  /** 登录 / 退出后向主进程上报当前角色（user/admin/ops/dev） */
+  setRole: (role: 'user' | 'admin' | 'ops' | 'dev' | null) => void
+  /** 请求主进程打开对应端窗口（受角色校验约束） */
+  openPortal: (key: 'admin' | 'ops' | 'dev') => void
   alert: (payload: { title?: string; body?: string; level?: 'info' | 'warning' | 'danger' | 'success' }) => void
   openExternal: (url: string) => void
   on: (

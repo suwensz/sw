@@ -56,6 +56,34 @@ const DEV_TEST_ACCOUNTS: Array<{ email: string; password: string; user: UserInfo
       createdAt: '2024-01-01T00:00:00Z',
     },
   },
+  {
+    email: 'dev_ops@coze.dev',
+    password: 'dev123456',
+    user: {
+      id: 'dev-ops-001',
+      email: 'dev_ops@coze.dev',
+      name: '跨境运营员',
+      nickname: '跨境运营员',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=suheng-ops',
+      role: 'ops',
+      locale: 'zh',
+      createdAt: '2024-01-01T00:00:00Z',
+    },
+  },
+  {
+    email: 'dev_dev@coze.dev',
+    password: 'dev123456',
+    user: {
+      id: 'dev-dev-001',
+      email: 'dev_dev@coze.dev',
+      name: '研发工程师',
+      nickname: '研发工程师',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=suheng-dev',
+      role: 'dev',
+      locale: 'zh',
+      createdAt: '2024-01-01T00:00:00Z',
+    },
+  },
 ]
 
 function loadUser(): UserInfo | null {
@@ -72,6 +100,11 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
   const loading = ref(false)
 
+  // 桌面端：恢复登录态时同步上报角色（应用重启后菜单可用性恢复）
+  if (user.value?.role) {
+    window.suhengOS?.setRole?.(user.value.role)
+  }
+
   const isAuthenticated = computed(() => !!user.value && !!token.value)
 
   const bmi = computed(() => {
@@ -86,6 +119,8 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = t
     localStorage.setItem(STORAGE_KEY, JSON.stringify(u))
     localStorage.setItem(TOKEN_KEY, t)
+    // 向 Electron 主进程上报角色，用于「工作台」菜单的可用性
+    window.suhengOS?.setRole?.(u.role)
   }
 
   async function login(payload: LoginPayload): Promise<{ success: boolean; message?: string }> {
@@ -237,6 +272,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(TOKEN_KEY)
+    window.suhengOS?.setRole?.(null)
   }
 
   return {

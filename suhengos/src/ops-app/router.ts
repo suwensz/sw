@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 /**
  * 运营端路由（:5200）
  * 面向电商运营团队，复用 views/ops 下的五个运营页面。
- * 登录后即可访问（暂不区分运营角色，接入权限体系后可收紧）。
+ * 仅 role === 'ops' 或 'admin' 的账号可进入。
  */
 const router = createRouter({
   history: createWebHashHistory(),
@@ -40,11 +40,16 @@ const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.public) {
-    if (auth.isAuthenticated) return { path: '/competitor' }
+    if (auth.isAuthenticated && (auth.user?.role === 'ops' || auth.user?.role === 'admin')) {
+      return { path: '/competitor' }
+    }
     return true
   }
   if (!auth.isAuthenticated) {
     return { name: 'OpsLogin', query: { redirect: to.fullPath } }
+  }
+  if (auth.user?.role !== 'ops' && auth.user?.role !== 'admin') {
+    return { name: 'OpsLogin', query: { error: 'forbidden' } }
   }
   return true
 })
