@@ -8,3 +8,4 @@ release/
 *.local
 .DS_Store
 _tmp_*
+*.tsbuildinfo
