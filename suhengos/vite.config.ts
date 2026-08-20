@@ -77,6 +77,11 @@ export default defineConfig(({ mode, command }) => {
       },
     },
     build: {
+      // Electron 打包时使用相对路径，Web 部署时使用绝对路径
+      // 关闭 emptyOutDir：vite 默认会在写入前 rm -rf outDir，被 WorkBuddy
+      // safe-delete 钩子拦截后 fail-closed 杀进程，导致构建在写入阶段崩溃。
+      // 改为不清理，旧产物文件残留无害（仅 asar 多几 KB 未引用资源）。
+      emptyOutDir: false,
       // 客户端保持 dist（Electron 打包依赖 dist/**），其余端独立目录
       outDir: appName === 'client' ? 'dist' : `dist-${appName}`,
       rollupOptions: {
