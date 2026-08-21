@@ -24,3 +24,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+*.local
+
+# WorkBuddy 工作区数据
+.workbuddy/
+_tmp_*

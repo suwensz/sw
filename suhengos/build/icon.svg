@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a6b5c"/>
+      <stop offset="100%" stop-color="#124d42"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <!-- 八卦/中字抽象：竖线 + 四横 -->
+  <g stroke="#d4a853" stroke-width="10" stroke-linecap="round" fill="none">
+    <line x1="128" y1="56" x2="128" y2="200"/>
+    <line x1="80" y1="84" x2="176" y2="84"/>
+    <line x1="88" y1="120" x2="168" y2="120"/>
+    <line x1="96" y1="156" x2="160" y2="156"/>
+    <line x1="104" y1="192" x2="152" y2="192"/>
+  </g>
+  <!-- 外环 -->
+  <circle cx="128" cy="128" r="108" stroke="#faf8f3" stroke-width="3" fill="none" opacity="0.3"/>
+  <!-- 心电波形 -->
+  <path d="M 40 140 L 80 140 L 95 120 L 110 160 L 125 110 L 140 160 L 155 130 L 176 140 L 216 140"
+        stroke="#52a67a" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+</svg>
