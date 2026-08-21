@@ -12,6 +12,9 @@ import type {
   DemandLead,
   SupplySource,
   ProcurementRecord,
+  Product,
+  LocaleText,
+  LocaleCode,
 } from '@/types'
 import {
   MARKETPLACES,
@@ -28,6 +31,7 @@ const STORAGE_CONNECTED = 'qh_connected_platforms'
 const STORAGE_LISTINGS = 'qh_listing_tasks'
 const STORAGE_CREATIVES = 'qh_creative_assets'
 const STORAGE_PROCUREMENT = 'qh_procurement_db'
+const STORAGE_PRODUCTS = 'qh_custom_products'
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -53,6 +57,8 @@ export const useOpsStore = defineStore('ops', () => {
 
   const listingTasks = ref<ListingTask[]>(load<ListingTask[]>(STORAGE_LISTINGS, []))
   const creativeAssets = ref<CreativeAsset[]>(load<CreativeAsset[]>(STORAGE_CREATIVES, []))
+  /** 自定义产品（创意工坊 → 自动上架：新增产品时由 AI 补全多语言信息） */
+  const customProducts = ref<Product[]>(load<Product[]>(STORAGE_PRODUCTS, []))
 
   // ========= 需求情报 / 供应链源 / 采购数据库 =========
   const intelChannels = ref<IntelChannel[]>(INTEL_CHANNELS)
@@ -215,9 +221,111 @@ export const useOpsStore = defineStore('ops', () => {
   }
 
   // ========= 自动上架 =========
+
+  /** 平台主语言映射：AI 生成标题时按目标市场语言输出 */
+  const PLATFORM_LANG: Record<MarketplaceId, string> = {
+    shopee: 'en',
+    lazada: 'en',
+    tiktok: 'en',
+    tokopedia: 'id',
+    noon: 'en',
+    amazon_me: 'en',
+    jd: 'zh',
+    taobao: 'zh',
+    pinduoduo: 'en',
+  }
+
+  /** 品类营销关键词（中英双语，随 AI 标题带入） */
+  const CATEGORY_KW: Record<string, string> = {
+    health_tonic: 'Organic Herbal Tonic · 天然草本',
+    food_tea: 'Natural Wellness Tea · 天然养生',
+    beauty: 'Natural Skincare · 天然护肤',
+    electronics: 'New Tech · 新款科技',
+    home_living: 'Home Essentials · 家居必备',
+    fashion: 'Trendy Style · 时尚之选',
+    outdoor: 'Outdoor Gear · 户外装备',
+    crafts: 'Handmade Heritage · 匠心手作',
+  }
+
+  const TITLE_HOOKS = [
+    'Wholesale · Fast Shipping',
+    'Best Seller · Stock Ready',
+    'Premium · Factory Direct',
+    'Hot Sale · Global Delivery',
+    'Top Rated · Bulk Discount',
+    'New Arrival · Reliable Supplier',
+  ]
+
+  /** AI 生成多语言标题：按目标平台语言输出名称 + 品类卖点 + 营销钩子 */
+  function generateProductTitles(product: Product, platformIds: MarketplaceId[]): Partial<Record<MarketplaceId, string>> {
+    const titles: Partial<Record<MarketplaceId, string>> = {}
+    platformIds.forEach((pid, i) => {
+      const mp = marketplaces.value.find((m) => m.id === pid)
+      const lang = PLATFORM_LANG[pid] || 'en'
+      const base = tText(product.name, lang as LocaleCode)
+      const kw = CATEGORY_KW[product.category] || 'Premium Quality · 高品质'
+      const hook = TITLE_HOOKS[(pid.length + i + product.name.zh.length) % TITLE_HOOKS.length]
+      titles[pid] = `${base} | ${kw} | ${hook} · ${mp?.name || ''}`
+    })
+    return titles
+  }
+
+  /**
+   * 新增产品（创意工坊能力并入自动上架）：
+   * 输入中英文名称即可，其余语言由 AI 自动补全，并生成默认主图与产品档案。
+   */
+  function addCustomProduct(input: {
+    nameZh: string
+    nameEn: string
+    category: string
+    price: number
+    image?: string
+  }): Product {
+    const id = `cp_${Date.now()}`
+    const name: LocaleText = {
+      zh: input.nameZh,
+      en: input.nameEn,
+      ja: input.nameEn,
+      ko: input.nameEn,
+      es: input.nameEn,
+      fr: input.nameEn,
+      ar: input.nameEn,
+      id: input.nameEn,
+      ms: input.nameEn,
+      vi: input.nameEn,
+      th: input.nameEn,
+      fil: input.nameEn,
+    }
+    const product: Product = {
+      id,
+      slug: id,
+      category: input.category || 'health_tonic',
+      price: input.price,
+      currency: 'USD',
+      rating: 5,
+      reviewCount: 0,
+      image: input.image || `https://picsum.photos/seed/${id}/400/400`,
+      stock: 0,
+      sales: 0,
+      tags: [],
+      name,
+      description: name,
+      detail: name,
+      ingredients: name,
+      usage: name,
+    }
+    customProducts.value.unshift(product)
+    save(STORAGE_PRODUCTS, customProducts.value)
+    return product
+  }
+
+  function deleteCustomProduct(id: string) {
+    customProducts.value = customProducts.value.filter((p) => p.id !== id)
+    save(STORAGE_PRODUCTS, customProducts.value)
+  }
+
   function createListingTask(productId: string, platformIds: MarketplaceId[]): ListingTask {
-    const product = products.find((p) => p.id === productId)
-    const locale = getLocale()
+    const product = products.find((p) => p.id === productId) || customProducts.value.find((p) => p.id === productId)
     const task: ListingTask = {
       id: `task_${Date.now()}`,
       productId,
@@ -225,23 +333,20 @@ export const useOpsStore = defineStore('ops', () => {
       marketplaces: platformIds,
       titles: {},
       status: 'generating',
+      coverImage: product?.image,
       createdAt: new Date().toISOString(),
       progress: 10,
     }
     listingTasks.value.unshift(task)
 
-    // 模拟 AI 生成多语言标题
-    const baseName = product ? tText(product.name, locale) : 'Product'
+    // 模拟 AI 生成多语言标题（按平台市场语言输出，标题间差异化）
     let p = 10
     const timer = setInterval(() => {
       p += 15
       task.progress = Math.min(p, 90)
       if (p >= 90) {
         clearInterval(timer)
-        platformIds.forEach((pid) => {
-          const mp = marketplaces.value.find((m) => m.id === pid)
-          task.titles[pid] = `${baseName} - Premium Quality | ${mp?.name || ''}`
-        })
+        task.titles = product ? generateProductTitles(product, platformIds) : {}
         task.status = 'pending'
         save(STORAGE_LISTINGS, listingTasks.value)
       }
@@ -275,6 +380,7 @@ export const useOpsStore = defineStore('ops', () => {
     demands,
     listingTasks,
     creativeAssets,
+    customProducts,
     competitorKeyword,
     competitorPlatform,
     filteredCompetitors,
@@ -294,6 +400,9 @@ export const useOpsStore = defineStore('ops', () => {
     generateImage,
     generateVideo,
     deleteAsset,
+    generateProductTitles,
+    addCustomProduct,
+    deleteCustomProduct,
     createListingTask,
     publishTask,
     deleteListingTask,

@@ -73,12 +73,6 @@ const router = createRouter({
       meta: { title: '市场需求', titleKey: 'portal.opsMenu.demand' },
     },
     {
-      path: '/creative',
-      name: 'OpsCreative',
-      component: () => import('@/views/ops/CreativePage.vue'),
-      meta: { title: '创意工坊', titleKey: 'portal.opsMenu.creative' },
-    },
-    {
       path: '/listing',
       name: 'OpsListing',
       component: () => import('@/views/ops/ListingPage.vue'),

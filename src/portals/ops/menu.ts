@@ -31,7 +31,6 @@ export const opsMenuGroups: PortalMenuGroup[] = [
       { label: '竞品分析', labelKey: 'portal.opsMenu.competitor', to: '/competitor', icon: 'Histogram' },
       { label: '供应链', labelKey: 'portal.opsMenu.supply', to: '/supply', icon: 'Van' },
       { label: '市场需求', labelKey: 'portal.opsMenu.demand', to: '/demand', icon: 'TrendCharts' },
-      { label: '创意工坊', labelKey: 'portal.opsMenu.creative', to: '/creative', icon: 'MagicStick' },
       { label: '自动上架', labelKey: 'portal.opsMenu.listing', to: '/listing', icon: 'Upload' },
       { label: '物流管理', labelKey: 'portal.opsMenu.logistics', to: '/logistics', icon: 'Ship' },
       { label: '采购管理', labelKey: 'portal.opsMenu.procurement', to: '/procurement', icon: 'ShoppingCart' },

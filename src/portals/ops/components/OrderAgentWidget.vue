@@ -745,6 +745,12 @@ const unreadCount = computed(() => pendingOrders.value.length)
 const detailOrder = ref<AgentOrder | null>(null)
 const detailVisible = ref(false)
 
+/** 订单卡片内联展开（点击卡片展开/收起完整详情） */
+const expandedId = ref<number | null>(null)
+function toggleExpand(order: AgentOrder) {
+  expandedId.value = expandedId.value === order.id ? null : order.id
+}
+
 function openOrderDetail(order: AgentOrder) {
   detailOrder.value = order
   detailVisible.value = true
@@ -1168,86 +1174,88 @@ onBeforeUnmount(() => {
           v-for="order in visibleOrders"
           :key="order.id"
           class="agent-card"
-          :class="{ 'is-handled': order.status !== 'pending' }"
+          :class="{ 'is-handled': order.status !== 'pending', 'is-expanded': expandedId === order.id }"
         >
-          <div class="agent-card-top">
-            <span v-if="order.channel === 'overseas'" class="agent-country">
-              <span class="agent-flag">{{ COUNTRY_FLAGS[order.country] }}</span>
-              <span class="agent-country-name">{{ countryName(order.country) }}</span>
-            </span>
-            <span v-else class="agent-channel" :style="channelStyle(order.channel)">
-              {{ channelName(order.channel) }}
-            </span>
-            <el-tag v-if="order.docType" size="small" effect="plain" class="agent-doc-tag">
-              {{ bilingualLabel(order.docType) }}
-            </el-tag>
-            <el-tag v-else-if="order.isWholesale" size="small" type="warning" effect="plain">
-              {{ t('portal.agent.orderWholesale') }}
-            </el-tag>
-            <span class="agent-time">{{ timeLabel(order.createdAt) }}</span>
-          </div>
-
-          <!-- 客户内容可点击查看订单全部内容 -->
-          <button type="button" class="agent-product agent-product-link" @click="openOrderDetail(order)">
-            <span class="agent-order-no">{{ order.orderNo }}</span>
-            {{ bilingualLabel(order.productName) }}
-            <span class="agent-view-hint">
-              <el-icon :size="12"><View /></el-icon>
-              {{ t('portal.agent.viewDetail') }}
-            </span>
-          </button>
-
-          <button type="button" class="agent-customer" @click="openOrderDetail(order)">
-            {{ t('portal.agent.customerLabel') }}：<b>{{ order.customerName }}</b>
-          </button>
-
-          <div class="agent-grid">
-            <div class="agent-field">
-              <label>{{ t('portal.agent.quantity') }}</label>
-              <span>{{ order.quantity.toLocaleString() }} {{ order.unit }}</span>
-            </div>
-            <div class="agent-field agent-field-amount">
-              <label>{{ t('portal.agent.amount') }}</label>
-              <span class="agent-amount">{{ amountLabel(order) }}</span>
-            </div>
-          </div>
-
-          <div class="agent-field">
-            <label>{{ t('portal.agent.shipRequirement') }}</label>
-            <span>{{ bilingualLabel(order.shipRequirement) }}</span>
-          </div>
-          <div class="agent-field">
-            <label>{{ t('portal.agent.qualityRequirement') }}</label>
-            <span>{{ bilingualLabel(order.qualityRequirement) }}</span>
-          </div>
-
-          <div class="agent-grid">
-            <div class="agent-field">
-              <label>{{ t('portal.agent.sample') }}</label>
-              <el-tag size="small" :type="order.sample ? 'success' : 'info'" effect="plain">
-                {{ order.sample ? t('portal.agent.sampleYes') : t('portal.agent.sampleNo') }}
-              </el-tag>
-            </div>
-            <div class="agent-field">
-              <label>{{ t('portal.agent.channelLabel') }}</label>
-              <span class="agent-channel-text" :style="{ color: channelStyle(order.channel).color }">
+          <!-- 点击整卡展开/收起完整订单内容 -->
+          <div class="agent-card-main" @click="toggleExpand(order)">
+            <div class="agent-card-top">
+              <span v-if="order.channel === 'overseas'" class="agent-country">
+                <span class="agent-flag">{{ COUNTRY_FLAGS[order.country] }}</span>
+                <span class="agent-country-name">{{ countryName(order.country) }}</span>
+              </span>
+              <span v-else class="agent-channel" :style="channelStyle(order.channel)">
                 {{ channelName(order.channel) }}
               </span>
+              <el-tag v-if="order.docType" size="small" effect="plain" class="agent-doc-tag">
+                {{ bilingualLabel(order.docType) }}
+              </el-tag>
+              <el-tag v-else-if="order.isWholesale" size="small" type="warning" effect="plain">
+                {{ t('portal.agent.orderWholesale') }}
+              </el-tag>
+              <span class="agent-time">{{ timeLabel(order.createdAt) }}</span>
+              <span class="agent-expand-hint">
+                <el-icon :size="12"><ArrowDown /></el-icon>
+              </span>
+            </div>
+
+            <div class="agent-product">
+              <span class="agent-order-no">{{ order.orderNo }}</span>
+              {{ bilingualLabel(order.productName) }}
+            </div>
+
+            <div class="agent-customer-line">
+              {{ t('portal.agent.customerLabel') }}：<b>{{ order.customerName }}</b>
+            </div>
+
+            <div class="agent-grid">
+              <div class="agent-field">
+                <label>{{ t('portal.agent.quantity') }}</label>
+                <span>{{ order.quantity.toLocaleString() }} {{ order.unit }}</span>
+              </div>
+              <div class="agent-field agent-field-amount">
+                <label>{{ t('portal.agent.amount') }}</label>
+                <span class="agent-amount">{{ amountLabel(order) }}</span>
+              </div>
+            </div>
+
+            <!-- 展开详情 -->
+            <div v-if="expandedId === order.id" class="agent-card-detail">
+              <div class="agent-field">
+                <label>{{ t('portal.agent.shipRequirement') }}</label>
+                <span>{{ bilingualLabel(order.shipRequirement) }}</span>
+              </div>
+              <div class="agent-field">
+                <label>{{ t('portal.agent.qualityRequirement') }}</label>
+                <span>{{ bilingualLabel(order.qualityRequirement) }}</span>
+              </div>
+              <div class="agent-grid">
+                <div class="agent-field">
+                  <label>{{ t('portal.agent.sample') }}</label>
+                  <el-tag size="small" :type="order.sample ? 'success' : 'info'" effect="plain">
+                    {{ order.sample ? t('portal.agent.sampleYes') : t('portal.agent.sampleNo') }}
+                  </el-tag>
+                </div>
+                <div class="agent-field">
+                  <label>{{ t('portal.agent.channelLabel') }}</label>
+                  <span class="agent-channel-text" :style="{ color: channelStyle(order.channel).color }">
+                    {{ channelName(order.channel) }}
+                  </span>
+                </div>
+              </div>
+              <div class="agent-grid">
+                <div class="agent-field">
+                  <label>{{ t('portal.agent.shipDate') }}</label>
+                  <span>{{ order.shipDate }}</span>
+                </div>
+                <div class="agent-field">
+                  <label>{{ t('portal.agent.eta') }}</label>
+                  <span>{{ order.eta }}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="agent-grid">
-            <div class="agent-field">
-              <label>{{ t('portal.agent.shipDate') }}</label>
-              <span>{{ order.shipDate }}</span>
-            </div>
-            <div class="agent-field">
-              <label>{{ t('portal.agent.eta') }}</label>
-              <span>{{ order.eta }}</span>
-            </div>
-          </div>
-
-          <footer class="agent-actions">
+          <footer class="agent-actions" @click.stop>
             <el-button size="small" text type="primary" @click="openOrderDetail(order)">
               <el-icon><View /></el-icon>
               {{ t('portal.agent.viewDetail') }}
@@ -1632,54 +1640,38 @@ onBeforeUnmount(() => {
   max-height: min(680px, calc(100vh - 150px));
   display: flex;
   flex-direction: column;
-  background: #fdfdfb;
-  border: 1px solid rgba(18, 77, 66, 0.12);
-  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #dde5e0;
+  border-radius: 14px;
   box-shadow:
-    0 24px 60px rgba(15, 43, 36, 0.26),
-    0 4px 14px rgba(15, 43, 36, 0.1);
+    0 20px 48px rgba(15, 43, 36, 0.22),
+    0 2px 8px rgba(15, 43, 36, 0.1);
   overflow: hidden;
   transform-origin: bottom right;
 }
 
-/* 头部：深绿渐变 + 金色氛围光 */
+/* 头部：经典商务标题栏（纯色深绿，无氛围光装饰） */
 .agent-header {
-  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 14px 30px;
-  background:
-    radial-gradient(circle at 88% -20%, rgba(212, 168, 83, 0.28), transparent 55%),
-    radial-gradient(circle at 8% 120%, rgba(47, 143, 116, 0.5), transparent 60%),
-    linear-gradient(135deg, #124d42, #1a6b5c);
+  padding: 14px 14px;
+  background: linear-gradient(180deg, #1f7868, #16604f);
   color: #faf8f3;
-  overflow: hidden;
-}
-.agent-header::after {
-  content: '';
-  position: absolute;
-  right: -34px;
-  top: -34px;
-  width: 110px;
-  height: 110px;
-  border-radius: 50%;
-  border: 1px dashed rgba(212, 168, 83, 0.35);
-  pointer-events: none;
 }
 .agent-avatar {
   position: relative;
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #f0d9a3;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
-  border: 1.5px solid rgba(212, 168, 83, 0.65);
-  box-shadow: 0 4px 12px rgba(10, 35, 29, 0.35);
+  color: #faf8f3;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 3px 10px rgba(10, 35, 29, 0.3);
 }
 .agent-avatar-dot {
   position: absolute;
@@ -1688,7 +1680,7 @@ onBeforeUnmount(() => {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  border: 2px solid #1a6b5c;
+  border: 2px solid #16604f;
   background: #b9c2bd;
 }
 .agent-avatar-dot.is-on {
@@ -1721,55 +1713,52 @@ onBeforeUnmount(() => {
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
-  color: #124d42;
-  background: linear-gradient(135deg, #f3d9a0, #e2b45c);
-  box-shadow: 0 2px 6px rgba(212, 168, 83, 0.45);
+  color: #ffffff;
+  background: #e0523f;
+  box-shadow: 0 2px 6px rgba(224, 82, 63, 0.45);
 }
 .agent-subtitle {
-  margin-top: 4px;
+  margin-top: 3px;
   font-size: 12px;
-  color: rgba(250, 248, 243, 0.78);
+  color: rgba(250, 248, 243, 0.8);
   line-height: 1.5;
 }
 .agent-header-tools {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 .agent-sound-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(250, 248, 243, 0.3);
-  border-radius: 10px;
-  background: rgba(250, 248, 243, 0.08);
-  color: #f0d9a3;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(250, 248, 243, 0.32);
+  border-radius: 8px;
+  background: rgba(250, 248, 243, 0.1);
+  color: #eaf3ef;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 .agent-sound-btn:hover {
-  background: rgba(212, 168, 83, 0.25);
+  background: rgba(250, 248, 243, 0.22);
   transform: translateY(-1px);
 }
 .agent-sound-btn.is-muted {
-  color: rgba(250, 248, 243, 0.5);
+  color: rgba(250, 248, 243, 0.45);
   background: transparent;
 }
 
-/* 页签：悬浮在头部底缘的分段控件 */
+/* 页签：经典 Tab 栏（与头部一体，激活项品牌色） */
 .agent-tabs {
   position: relative;
   z-index: 2;
   display: flex;
-  gap: 4px;
-  margin: -18px 14px 0;
-  padding: 5px;
+  gap: 2px;
+  padding: 6px 10px 0;
   background: #ffffff;
-  border: 1px solid #e9efeb;
-  border-radius: 14px;
-  box-shadow: 0 8px 20px rgba(15, 43, 36, 0.12);
+  border-bottom: 1px solid #e6ece8;
 }
 .agent-tab {
   flex: 1;
@@ -1777,24 +1766,24 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 8px 6px;
+  padding: 9px 6px;
   border: none;
-  border-radius: 10px;
+  border-bottom: 2px solid transparent;
   background: transparent;
-  color: #7d8a84;
+  color: #6f7d77;
   font-size: 13px;
   cursor: pointer;
-  transition: background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 .agent-tab:hover {
   color: #1a6b5c;
-  background: #f2f7f4;
+  background: #f4f8f6;
 }
 .agent-tab.is-active {
-  background: linear-gradient(135deg, #1a6b5c, #2f8f74);
-  color: #ffffff;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(26, 107, 92, 0.35);
+  color: #16604f;
+  font-weight: 700;
+  border-bottom-color: #1a6b5c;
+  background: #f2f8f5;
 }
 
 .agent-list {
@@ -1804,7 +1793,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: linear-gradient(180deg, #f4f8f5, #f8faf8);
+  background: #f7faf8;
 }
 .agent-list::-webkit-scrollbar,
 .agent-chat-list::-webkit-scrollbar {
@@ -1887,27 +1876,25 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-radius: 12px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(212, 168, 83, 0.12), transparent 60%),
-    linear-gradient(135deg, #f0f7f3, #faf6ec);
-  border: 1px solid #e6e8dd;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e6ece8;
 }
 .agent-db-ico {
   width: 26px;
   height: 26px;
-  border-radius: 9px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a6b5c, #2f8f74);
-  color: #f0d9a3;
+  background: linear-gradient(180deg, #1a6b5c, #2f8f74);
+  color: #ffffff;
   box-shadow: 0 3px 8px rgba(26, 107, 92, 0.3);
 }
 .agent-db-label {
   font-size: 12.5px;
   font-weight: 700;
-  color: #124d42;
+  color: #16604f;
 }
 .agent-db-count {
   margin-left: auto;
@@ -1933,7 +1920,13 @@ onBeforeUnmount(() => {
   gap: 9px;
   box-shadow: 0 2px 8px rgba(15, 43, 36, 0.05);
   overflow: hidden;
+  cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.agent-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
 }
 .agent-card::before {
   content: '';
@@ -1946,8 +1939,12 @@ onBeforeUnmount(() => {
 }
 .agent-card:hover {
   transform: translateY(-2px);
-  border-color: #d8e4de;
+  border-color: #c2d9cf;
   box-shadow: 0 10px 24px rgba(15, 43, 36, 0.12);
+}
+.agent-card.is-expanded {
+  border-color: #1a6b5c;
+  box-shadow: 0 10px 24px rgba(26, 107, 92, 0.16);
 }
 .agent-card.is-handled {
   opacity: 0.58;
@@ -1955,6 +1952,35 @@ onBeforeUnmount(() => {
 }
 .agent-card.is-handled::before {
   background: #c7d0cb;
+}
+.agent-expand-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: #8a958e;
+  background: #f2f6f4;
+  transition: transform 0.25s ease, background 0.25s ease, color 0.25s ease;
+}
+.agent-card.is-expanded .agent-expand-hint {
+  transform: rotate(180deg);
+  color: #fff;
+  background: #1a6b5c;
+}
+.agent-card-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 9px;
+  border-top: 1px dashed #dde8e2;
+  animation: agent-detail-in 0.22s ease;
+}
+@keyframes agent-detail-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .agent-card-top {
   display: flex;
@@ -2070,58 +2096,15 @@ onBeforeUnmount(() => {
   border-radius: 999px;
 }
 
-/* 客户内容可点击（查看订单全部内容） */
-.agent-product-link {
+/* 客户名（点击卡片任意处即可展开详情） */
+.agent-customer-line {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  color: inherit;
-  border-radius: 8px;
-  transition: color 0.18s ease;
-}
-.agent-product-link:hover {
-  color: #1a6b5c;
-}
-.agent-product-link:hover .agent-order-no {
-  color: #1a6b5c;
-}
-.agent-view-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: auto;
-  font-size: 10.5px;
-  color: #1a6b5c;
-  opacity: 0.75;
-  white-space: nowrap;
-}
-.agent-customer {
-  display: inline-flex;
-  align-items: center;
   gap: 4px;
-  max-width: 100%;
-  margin: 2px 0 6px;
-  padding: 2px 6px;
-  border: 1px dashed #cfe3da;
-  border-radius: 8px;
-  background: #f2f8f5;
   font-size: 12.5px;
   color: var(--color-text-regular, #606266);
-  cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease;
 }
-.agent-customer:hover {
-  border-color: #1a6b5c;
-  background: #e7f3ee;
-}
-.agent-customer b {
+.agent-customer-line b {
   color: #1a6b5c;
 }
 
@@ -2133,8 +2116,8 @@ onBeforeUnmount(() => {
   margin: 6px 0 10px;
   padding: 6px 10px;
   border-radius: 10px;
-  background: linear-gradient(90deg, #eef7f2, #f7f3e7);
-  border: 1px solid #e2efe8;
+  background: #eef7f2;
+  border: 1px solid #dcebe3;
   font-size: 11.5px;
   color: #4a7a6b;
 }
@@ -2151,8 +2134,9 @@ onBeforeUnmount(() => {
   gap: 8px;
   margin-bottom: 14px;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #f2f8f5, #fbf6e9);
+  border-radius: 10px;
+  background: #f7faf8;
+  border: 1px solid #e8ede9;
 }
 .agent-detail-grid {
   display: grid;
@@ -2203,7 +2187,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #f4f8f5, #f8faf8);
+  background: #f7faf8;
 }
 .agent-chat-toolbar {
   display: flex;
@@ -2266,8 +2250,8 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a6b5c, #2f8f74);
-  color: #f0d9a3;
+  background: linear-gradient(180deg, #1a6b5c, #2f8f74);
+  color: #ffffff;
 }
 .chat-bubble {
   padding: 9px 12px;
@@ -2288,7 +2272,7 @@ onBeforeUnmount(() => {
   background: linear-gradient(135deg, #1a6b5c, #2f8f74);
   color: #faf8f3;
   border-top-right-radius: 4px;
-  box-shadow: 0 4px 12px rgba(26, 107, 92, 0.28);
+  box-shadow: 0 2px 6px rgba(26, 107, 92, 0.2);
 }
 .bubble-me {
   background: #e9f3ee;
@@ -2329,9 +2313,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(212, 168, 83, 0.07), transparent 45%),
-    linear-gradient(180deg, #f4f8f5, #f8faf8);
+  background: #f7faf8;
 }
 .kb-card {
   position: relative;
@@ -2340,36 +2322,23 @@ onBeforeUnmount(() => {
   gap: 10px;
   margin: 10px 14px 0;
   padding: 10px 12px;
-  border-radius: 14px;
-  background:
-    radial-gradient(circle at 105% -30%, rgba(212, 168, 83, 0.3), transparent 60%),
-    linear-gradient(135deg, #124d42, #1a6b5c);
-  color: #faf8f3;
-  overflow: hidden;
-  box-shadow: 0 6px 18px rgba(15, 43, 36, 0.22);
-}
-.kb-card::after {
-  content: '';
-  position: absolute;
-  right: -22px;
-  bottom: -30px;
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  border: 1px dashed rgba(212, 168, 83, 0.4);
-  pointer-events: none;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e6ece8;
+  color: #303133;
+  box-shadow: 0 2px 8px rgba(15, 43, 36, 0.05);
 }
 .kb-ico {
   flex: none;
   width: 34px;
   height: 34px;
-  border-radius: 11px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
-  border: 1.5px solid rgba(212, 168, 83, 0.65);
-  color: #f0d9a3;
+  background: linear-gradient(180deg, #1a6b5c, #2f8f74);
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(26, 107, 92, 0.3);
 }
 .kb-text {
   flex: 1;
@@ -2379,11 +2348,12 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.4px;
+  color: #16604f;
 }
 .kb-sub {
   margin-top: 2px;
   font-size: 11.5px;
-  color: rgba(250, 248, 243, 0.75);
+  color: #8a958e;
 }
 .kb-pulse {
   position: absolute;
