@@ -213,6 +213,13 @@ function onVoiceClick() {
             @update:model-value="(v: string) => llmStore.setModel(v)"
           />
         </el-form-item>
+        <el-form-item v-else :label="t('portal.agentsCenter.llmBotId')">
+          <el-input
+            :model-value="llmStore.data.botId || ''"
+            placeholder="738xxxxxxxx"
+            @update:model-value="(v: string) => llmStore.setBotId(v)"
+          />
+        </el-form-item>
         <div class="ac-config-actions">
           <el-button type="primary" @click="onSaveConfig">{{ t('portal.agentsCenter.llmSave') }}</el-button>
           <el-button plain @click="llmStore.reset">{{ t('portal.agentsCenter.llmReset') }}</el-button>

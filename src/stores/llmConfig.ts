@@ -48,22 +48,27 @@ interface LlmConfigData {
   apiKey: string
   endpoint: string
   model: string
+  /** 扣子 Coze 机器人 ID（仅在 provider=coze 时使用） */
+  botId?: string
 }
 
 const STORAGE_KEY = 'qh_llm_config'
+const DEFAULT_BOT_ID = 'suheng-os-agent'
 
 function loadConfig(): LlmConfigData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as LlmConfigData
-      if (parsed && typeof parsed === 'object') return parsed
+      if (parsed && typeof parsed === 'object') {
+        return { ...parsed, botId: parsed.botId || DEFAULT_BOT_ID }
+      }
     }
   } catch {
     /* ignore */
   }
   const preset = LLM_PROVIDERS[0]
-  return { provider: 'deepseek', apiKey: '', endpoint: preset.endpoint, model: preset.model }
+  return { provider: 'deepseek', apiKey: '', endpoint: preset.endpoint, model: preset.model, botId: DEFAULT_BOT_ID }
 }
 
 export const useLlmConfigStore = defineStore('llmConfig', () => {
@@ -108,9 +113,14 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
     persist()
   }
 
+  function setBotId(botId: string) {
+    data.value.botId = botId.trim() || DEFAULT_BOT_ID
+    persist()
+  }
+
   function reset() {
     const preset = LLM_PROVIDERS[0]
-    data.value = { provider: 'deepseek', apiKey: '', endpoint: preset.endpoint, model: preset.model }
+    data.value = { provider: 'deepseek', apiKey: '', endpoint: preset.endpoint, model: preset.model, botId: DEFAULT_BOT_ID }
     persist()
   }
 
@@ -122,6 +132,7 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
     setApiKey,
     setEndpoint,
     setModel,
+    setBotId,
     reset,
   }
 })

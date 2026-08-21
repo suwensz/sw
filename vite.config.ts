@@ -43,5 +43,18 @@ export default defineConfig({
       port: 6000,
       path: '/hot/vite-hmr',
     },
+    // AI 服务本地转发代理：浏览器请求 /api/llm → llm-proxy.cjs(127.0.0.1:8899)
+    // 规避浏览器直连 DeepSeek/豆包/扣子的 CORS 限制（llm-proxy 需先启动）
+    proxy: {
+      '/api/llm': {
+        target: 'http://127.0.0.1:8899',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/llm$/, '/llm'),
+        configure: (proxy) => {
+          // 代理未启动时返回 502，让前端直连兜底（DeepSeek 支持浏览器跨域）
+          proxy.on('error', () => undefined)
+        },
+      },
+    },
   },
 })

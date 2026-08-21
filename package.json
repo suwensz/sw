@@ -62,7 +62,11 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "scripts/llm-proxy.cjs",
       "package.json"
+    ],
+    "asarUnpack": [
+      "scripts/llm-proxy.cjs"
     ],
     "win": {
       "target": [

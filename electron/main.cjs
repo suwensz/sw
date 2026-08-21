@@ -25,6 +25,7 @@ const path = require('path')
 const os = require('os')
 const { pathToFileURL } = require('url')
 const fs = require('fs')
+const { fork } = require('child_process')
 
 // ====== 日志 ======
 const LOG_FILE = path.join(os.tmpdir(), 'suheng-debug.log')
@@ -92,6 +93,36 @@ if (!gotLock) {
   })
 }
 
+// ====== AI 本地转发代理（规避 CORS，供浏览器直连 DeepSeek/豆包/扣子）======
+let llmProxyChild = null
+function startLlmProxy() {
+  if (llmProxyChild) return
+  const proxyScript = path.join(__dirname, '../scripts/llm-proxy.cjs')
+  if (!fs.existsSync(proxyScript)) {
+    log('llm-proxy script not found, skip')
+    return
+  }
+  llmProxyChild = fork(proxyScript, [], {
+    stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+  })
+  llmProxyChild.stdout?.on('data', (d) => log(`[llm-proxy] ${String(d).trim()}`))
+  llmProxyChild.stderr?.on('data', (d) => log(`[llm-proxy:err] ${String(d).trim()}`))
+  llmProxyChild.on('exit', (code) => {
+    log(`llm-proxy exited: ${code}`)
+    llmProxyChild = null
+  })
+}
+function stopLlmProxy() {
+  if (llmProxyChild) {
+    try {
+      llmProxyChild.kill()
+    } catch {
+      /* ignore */
+    }
+    llmProxyChild = null
+  }
+}
+
 // ====== 初始化 ======
 function initApp() {
   log('initApp start')
@@ -100,6 +131,7 @@ function initApp() {
     createTray()
     buildMenu()
     registerIpcHandlers()
+    startLlmProxy()
     log('initApp done')
   } catch (err) {
     log(`initApp error: ${err && err.stack ? err.stack : err}`)
@@ -379,6 +411,7 @@ app.on('window-all-closed', (e) => {
 
 app.on('before-quit', () => {
   isQuitting = true
+  stopLlmProxy()
   log('before-quit')
 })
 

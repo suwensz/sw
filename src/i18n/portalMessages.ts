@@ -265,6 +265,7 @@ type PortalMessages = {
     llmApiKeyPlaceholder: string
     llmEndpoint: string
     llmModel: string
+    llmBotId: string
     llmSave: string
     llmReset: string
     llmUseLocal: string
@@ -619,6 +620,7 @@ const zh: PortalMessages = {
     llmApiKeyPlaceholder: '粘贴您的 API Key（免费版即可）',
     llmEndpoint: '接口地址',
     llmModel: '模型',
+    llmBotId: 'Bot ID',
     llmSave: '保存',
     llmReset: '重置',
     llmUseLocal: '未配置时自动使用本地知识库回答',
@@ -971,6 +973,7 @@ const en: PortalMessages = {
     llmApiKeyPlaceholder: 'Paste your API key (free tier works)',
     llmEndpoint: 'Endpoint',
     llmModel: 'Model',
+    llmBotId: 'Bot ID',
     llmSave: 'Save',
     llmReset: 'Reset',
     llmUseLocal: 'Falls back to the local knowledge base when not configured',
@@ -1323,6 +1326,7 @@ const ar: PortalMessages = {
     llmApiKeyPlaceholder: 'الصق مفتاح API الخاص بك (النسخة المجانية تكفي)',
     llmEndpoint: 'عنوان الخدمة',
     llmModel: 'النموذج',
+    llmBotId: 'Bot ID',
     llmSave: 'حفظ',
     llmReset: 'إعادة تعيين',
     llmUseLocal: 'استخدم قاعدة المعرفة المحلية تلقائيا إذا لم يتم التهيئة',
@@ -1675,6 +1679,7 @@ const vi: PortalMessages = {
     llmApiKeyPlaceholder: 'Dán API Key của bạn (bản miễn phí là đủ)',
     llmEndpoint: 'Địa chỉ API',
     llmModel: 'Mô hình',
+    llmBotId: 'Bot ID',
     llmSave: 'Lưu',
     llmReset: 'Đặt lại',
     llmUseLocal: 'Tự dùng kho tri thức nội bộ khi chưa cấu hình',
@@ -2027,6 +2032,7 @@ const th: PortalMessages = {
     llmApiKeyPlaceholder: 'วาง API Key ของคุณ (เวอร์ชันฟรีก็ได้)',
     llmEndpoint: 'ปลายทาง API',
     llmModel: 'โมเดล',
+    llmBotId: 'Bot ID',
     llmSave: 'บันทึก',
     llmReset: 'รีเซ็ต',
     llmUseLocal: 'ใช้ฐานความรู้ในระบบอัตโนมัติเมื่อยังไม่ได้ตั้งค่า',
@@ -2379,6 +2385,7 @@ const id: PortalMessages = {
     llmApiKeyPlaceholder: 'Tempel API Key Anda (versi gratis sudah cukup)',
     llmEndpoint: 'Endpoint',
     llmModel: 'Model',
+    llmBotId: 'Bot ID',
     llmSave: 'Simpan',
     llmReset: 'Reset',
     llmUseLocal: 'Gunakan basis pengetahuan lokal otomatis jika belum dikonfigurasi',
@@ -2731,6 +2738,7 @@ const ms: PortalMessages = {
     llmApiKeyPlaceholder: 'Tampal API Key anda (versi percuma sudah memadai)',
     llmEndpoint: 'Endpoint',
     llmModel: 'Model',
+    llmBotId: 'Bot ID',
     llmSave: 'Simpan',
     llmReset: 'Set Semula',
     llmUseLocal: 'Guna pangkalan pengetahuan tempatan secara automatik jika belum dikonfigurasi',
@@ -3083,6 +3091,7 @@ const fil: PortalMessages = {
     llmApiKeyPlaceholder: 'I-paste ang iyong API key (kaya ng free version)',
     llmEndpoint: 'Endpoint',
     llmModel: 'Model',
+    llmBotId: 'Bot ID',
     llmSave: 'I-save',
     llmReset: 'I-reset',
     llmUseLocal: 'Gamitin ang lokal na knowledge base kung hindi pa naka-configure',

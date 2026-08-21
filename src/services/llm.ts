@@ -2,9 +2,63 @@
 // 统一入口 askAI(domain, question, history)：
 //   1. 已配置密钥 → 调用所选服务商（DeepSeek 免费版 / 豆包免费版 / 扣子免费版）
 //   2. 未配置或调用失败 → 回退本地知识库回答引擎（services/knowledge）
-// 纯前端直连：密钥仅保存在浏览器 localStorage，供演示/内网部署使用。
+// 请求链路（解决浏览器 CORS 限制）：
+//   代理优先 → 直连兜底 → 本地知识库
+//   - 代理：POST /api/llm（由 scripts/llm-proxy.cjs 提供，Vite dev 代理自动转发到 127.0.0.1:8899，
+//     Electron 桌面端启动时自动拉起；生产 Web 部署请自行把 /api/llm 反代到 llm-proxy 或服务端代理）
+//   - 直连：DeepSeek 官方支持浏览器跨域；豆包/扣子通常被浏览器拦截，此时依赖代理
+//   - 密钥仅保存在浏览器 localStorage，供演示/内网部署使用。
 import { useLlmConfigStore, LLM_PROVIDERS } from '@/stores/llmConfig'
 import { localAnswer, type Domain } from '@/services/knowledge'
+
+/** 本地代理地址：同源 /api/llm（推荐），可用 VITE_LLM_PROXY 覆盖 */
+const PROXY_URL = (import.meta.env.VITE_LLM_PROXY as string) || '/api/llm'
+
+/** 代理是否开启（构建时置 VITE_LLM_PROXY=off 可关闭） */
+const PROXY_ENABLED = PROXY_URL !== 'off'
+
+/** 经本地代理转发；失败返回 null（由上层走直连或本地兜底） */
+async function callProxy(
+  endpoint: string,
+  apiKey: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok: boolean; status: number; text: string } | null> {
+  if (!PROXY_ENABLED) return null
+  try {
+    const res = await withTimeout(
+      fetch(PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint, apiKey, payload }),
+      }),
+    )
+    const text = await res.text()
+    return { ok: res.ok, status: res.status, text }
+  } catch {
+    return null
+  }
+}
+
+/** 解析 OpenAI 兼容响应文本 */
+function parseOpenAiText(text: string): string | null {
+  try {
+    const data = JSON.parse(text)
+    return data?.choices?.[0]?.message?.content ?? null
+  } catch {
+    return null
+  }
+}
+
+/** 解析 Coze v3 响应文本 */
+function parseCozeText(text: string): string | null {
+  try {
+    const data = JSON.parse(text)
+    const answer = data?.data?.[0]?.content
+    return answer ? String(answer) : null
+  } catch {
+    return null
+  }
+}
 
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant'
@@ -50,60 +104,96 @@ function withTimeout(promise: Promise<Response>, ms = 15000): Promise<Response> 
   })
 }
 
-/** OpenAI 兼容格式调用（DeepSeek / 豆包） */
+/** OpenAI 兼容格式调用（DeepSeek / 豆包）—— 代理优先，直连兜底 */
 async function callOpenAICompatible(
   endpoint: string,
   apiKey: string,
   model: string,
   messages: LlmMessage[],
 ): Promise<string | null> {
-  const res = await withTimeout(
-    fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: model || 'deepseek-chat',
-        messages,
-        temperature: 0.7,
-        max_tokens: 1024,
-        stream: false,
+  const payload = {
+    model: model || 'deepseek-chat',
+    messages,
+    temperature: 0.7,
+    max_tokens: 1024,
+    stream: false,
+  }
+  // 1) 本地代理（规避 CORS）
+  const viaProxy = await callProxy(endpoint, apiKey, payload)
+  if (viaProxy) {
+    if (viaProxy.ok) {
+      const text = parseOpenAiText(viaProxy.text)
+      if (text) return text
+    } else if (viaProxy.status < 500) {
+      // 上游正常响应但报错（4xx：key 无效 / 模型未开通等），直连必同样失败
+      return null
+    }
+    // 5xx（代理未启动/网关错误）→ 落到下方直连兜底
+  }
+  // 2) 直连兜底（DeepSeek 支持浏览器跨域）
+  try {
+    const res = await withTimeout(
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
       }),
-    }),
-  )
-  if (!res.ok) return null
-  const data = await res.json()
-  return data?.choices?.[0]?.message?.content ?? null
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    return data?.choices?.[0]?.message?.content ?? null
+  } catch {
+    return null
+  }
 }
 
-/** 扣子 Coze v3 chat 调用 */
+/** 扣子 Coze v3 chat 调用 —— 代理优先，直连兜底 */
 async function callCoze(
   endpoint: string,
   apiKey: string,
+  botId: string,
   question: string,
 ): Promise<string | null> {
-  const res = await withTimeout(
-    fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        bot_id: 'suheng-os-agent',
-        user_id: 'suheng-os-user',
-        stream: false,
-        auto_save_history: true,
-        additional_messages: [{ role: 'user', content: question }],
+  const payload = {
+    bot_id: botId || 'suheng-os-agent',
+    user_id: 'suheng-os-user',
+    stream: false,
+    auto_save_history: true,
+    additional_messages: [{ role: 'user', content: question }],
+  }
+  // 1) 本地代理（规避 CORS）
+  const viaProxy = await callProxy(endpoint, apiKey, payload)
+  if (viaProxy) {
+    if (viaProxy.ok) {
+      const text = parseCozeText(viaProxy.text)
+      if (text) return text
+    } else if (viaProxy.status < 500) {
+      return null
+    }
+    // 5xx → 走直连兜底
+  }
+  // 2) 直连兜底
+  try {
+    const res = await withTimeout(
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
       }),
-    }),
-  )
-  if (!res.ok) return null
-  const data = await res.json()
-  const answer = data?.data?.[0]?.content
-  return answer ? String(answer) : null
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    const answer = data?.data?.[0]?.content
+    return answer ? String(answer) : null
+  } catch {
+    return null
+  }
 }
 
 /** 调用已配置的云端 LLM；失败返回 null（由上层回退本地知识库） */
@@ -123,7 +213,7 @@ export async function askLLM(
       // Coze 简化为单轮 + 最近一条上下文
       const last = history[history.length - 1]
       const content = last ? `（对话上文）${last.content}\n（当前提问）${userMsg}` : userMsg
-      return await callCoze(cfg.data.endpoint, cfg.data.apiKey, content)
+      return await callCoze(cfg.data.endpoint, cfg.data.apiKey, cfg.data.botId || '', content)
     }
     const messages: LlmMessage[] = [
       { role: 'system', content: system },
