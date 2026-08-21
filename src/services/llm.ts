@@ -226,6 +226,95 @@ export async function askLLM(
   }
 }
 
+/* ---------------- 一键测试连接（配置面板用） ---------------- */
+
+export type LlmProbeCode = 'OK' | 'NO_KEY' | 'NO_ENDPOINT' | 'PROXY_DOWN' | 'KEY_INVALID' | 'MODEL_ERROR' | 'PARSE_ERROR'
+
+export interface LlmProbeResult {
+  ok: boolean
+  code: LlmProbeCode
+  /** 服务商原始错误信息（含服务商原生文案，便于定位） */
+  detail?: string
+}
+
+/** 从服务商错误响应文本推断错误类型 */
+function classifyError(text: string): Extract<LlmProbeCode, 'KEY_INVALID' | 'MODEL_ERROR'> {
+  const t = text.toLowerCase()
+  const authHit = /auth|token|key|401|403|unauthorized|permission/i.test(t)
+  const modelHit = /model|not found|404|bot|project_id|access to the model/i.test(t)
+  if (authHit) return 'KEY_INVALID'
+  if (modelHit) return 'MODEL_ERROR'
+  return 'MODEL_ERROR'
+}
+
+/**
+ * 一键测试连接：对当前服务商发起最小请求，返回结构化诊断。
+ * 链路与 askLLM 一致（代理优先 → 直连），失败原因可区分：
+ *   代理未启动 / Key 无效 / 模型或 Bot 错误 / 成功
+ */
+export async function testLLMConnection(): Promise<LlmProbeResult> {
+  const cfg = useLlmConfigStore()
+  if (!cfg.data.apiKey.trim()) return { ok: false, code: 'NO_KEY' }
+  if (!cfg.data.endpoint.trim()) return { ok: false, code: 'NO_ENDPOINT' }
+
+  const probe = '你好，请用一句话简单回复'
+  const probeMsgs: LlmMessage[] = [{ role: 'user', content: probe }]
+
+  // 构建最小请求体
+  const isCoze = cfg.data.provider === 'coze'
+  const payload: Record<string, unknown> = isCoze
+    ? {
+        bot_id: cfg.data.botId || 'suheng-os-agent',
+        user_id: 'suheng-os-user',
+        stream: false,
+        auto_save_history: false,
+        additional_messages: probeMsgs,
+      }
+    : {
+        model: cfg.data.model || 'deepseek-chat',
+        messages: probeMsgs,
+        temperature: 0.3,
+        max_tokens: 64,
+        stream: false,
+      }
+
+  // 1) 代理优先
+  const viaProxy = await callProxy(cfg.data.endpoint, cfg.data.apiKey, payload)
+  if (viaProxy) {
+    if (viaProxy.ok) {
+      const text = isCoze ? parseCozeText(viaProxy.text) : parseOpenAiText(viaProxy.text)
+      if (text) return { ok: true, code: 'OK', detail: text.slice(0, 80) }
+      return { ok: false, code: 'PARSE_ERROR', detail: viaProxy.text.slice(0, 200) }
+    }
+    if (viaProxy.status < 500) {
+      const code = classifyError(viaProxy.text)
+      return { ok: false, code, detail: viaProxy.text.slice(0, 200) }
+    }
+    // 5xx → 代理已连上但上游网关错误，或代理异常
+    return { ok: false, code: 'PROXY_DOWN', detail: `代理返回 HTTP ${viaProxy.status}` }
+  }
+
+  // 2) 直连兜底
+  try {
+    const res = await withTimeout(
+      fetch(cfg.data.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.data.apiKey}` },
+        body: JSON.stringify(payload),
+      }),
+    )
+    const text = await res.text()
+    if (res.ok) {
+      const answer = isCoze ? parseCozeText(text) : parseOpenAiText(text)
+      if (answer) return { ok: true, code: 'OK', detail: answer.slice(0, 80) }
+      return { ok: false, code: 'PARSE_ERROR', detail: text.slice(0, 200) }
+    }
+    return { ok: false, code: classifyError(text), detail: text.slice(0, 200) }
+  } catch {
+    return { ok: false, code: 'PROXY_DOWN' }
+  }
+}
+
 /** 统一 AI 问答入口：云端优先，本地知识库兜底 */
 export async function askAI(
   domain: Domain,

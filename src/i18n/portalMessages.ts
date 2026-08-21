@@ -270,6 +270,15 @@ type PortalMessages = {
     llmReset: string
     llmUseLocal: string
     llmSaved: string
+    llmTest: string
+    llmTesting: string
+    llmTestOk: string
+    llmTestNoKey: string
+    llmTestNoEndpoint: string
+    llmTestProxyDown: string
+    llmTestKeyInvalid: string
+    llmTestModelError: string
+    llmTestFail: string
   }
   /** 中医健康概览页 */
   tcmOverview: {
@@ -625,6 +634,15 @@ const zh: PortalMessages = {
     llmReset: '重置',
     llmUseLocal: '未配置时自动使用本地知识库回答',
     llmSaved: 'AI 服务配置已保存',
+    llmTest: 'Subukan ang Koneksyon',
+    llmTesting: 'Sinusubukan…',
+    llmTestOk: '✓ Kumonekta',
+    llmTestNoKey: 'Pakiusap ilagay muna ang API Key',
+    llmTestNoEndpoint: 'Walang laman ang endpoint',
+    llmTestProxyDown: 'Hindi pa tumatakbo ang lokal na proxy, simulan muna',
+    llmTestKeyInvalid: 'Hindi wasto ang API Key, suriin at subukan muli',
+    llmTestModelError: 'Mali ang pangalan ng modelo o Bot ID, suriin',
+    llmTestFail: 'Nabigo ang koneksyon, suriin ang config',
   },
   tcmOverview: {
     title: '中医健康概览',
@@ -978,6 +996,15 @@ const en: PortalMessages = {
     llmReset: 'Reset',
     llmUseLocal: 'Falls back to the local knowledge base when not configured',
     llmSaved: 'AI service config saved',
+    llmTest: 'Uji Sambungan',
+    llmTesting: 'Sedang menguji…',
+    llmTestOk: '✓ Bersambung',
+    llmTestNoKey: 'Sila masukkan API Key dahulu',
+    llmTestNoEndpoint: 'Endpoint kosong',
+    llmTestProxyDown: 'Proksi tempatan belum berjalan, mulakan dahulu',
+    llmTestKeyInvalid: 'Kunci API tidak sah, semak dan cuba lagi',
+    llmTestModelError: 'Nama model atau Bot ID salah, semak',
+    llmTestFail: 'Sambungan gagal, semak konfigurasi',
   },
   tcmOverview: {
     title: 'TCM Health Overview',
@@ -1331,6 +1358,15 @@ const ar: PortalMessages = {
     llmReset: 'إعادة تعيين',
     llmUseLocal: 'استخدم قاعدة المعرفة المحلية تلقائيا إذا لم يتم التهيئة',
     llmSaved: 'تم حفظ إعدادات خدمة الذكاء',
+    llmTest: 'Uji Koneksi',
+    llmTesting: 'Menguji…',
+    llmTestOk: '✓ Terhubung',
+    llmTestNoKey: 'Masukkan API Key terlebih dahulu',
+    llmTestNoEndpoint: 'Endpoint kosong',
+    llmTestProxyDown: 'Proxy lokal belum berjalan, mulai dulu',
+    llmTestKeyInvalid: 'API Key tidak valid, periksa lalu coba lagi',
+    llmTestModelError: 'Nama model atau Bot ID salah, periksa',
+    llmTestFail: 'Koneksi gagal, periksa konfigurasi',
   },
   tcmOverview: {
     title: 'نظرة عامة على الصحة الصينية',
@@ -1684,6 +1720,15 @@ const vi: PortalMessages = {
     llmReset: 'Đặt lại',
     llmUseLocal: 'Tự dùng kho tri thức nội bộ khi chưa cấu hình',
     llmSaved: 'Đã lưu cấu hình dịch vụ AI',
+    llmTest: 'ทดสอบการเชื่อมต่อ',
+    llmTesting: 'กำลังทดสอบ…',
+    llmTestOk: '✓ เชื่อมต่อสำเร็จ',
+    llmTestNoKey: 'กรุณาใส่ API Key ก่อน',
+    llmTestNoEndpoint: 'Endpoint ว่างเปล่า',
+    llmTestProxyDown: 'พร็อกซีท้องถิ่นยังไม่ทำงาน กรุณาเริ่มก่อน',
+    llmTestKeyInvalid: 'API Key ไม่ถูกต้อง กรุณาตรวจสอบแล้วลองใหม่',
+    llmTestModelError: 'ชื่อ model หรือ Bot ID ผิด กรุณาตรวจสอบ',
+    llmTestFail: 'การเชื่อมต่อล้มเหลว ตรวจสอบค่าการตั้งค่า',
   },
   tcmOverview: {
     title: 'Tổng quan sức khỏe Đông y',
@@ -2037,6 +2082,15 @@ const th: PortalMessages = {
     llmReset: 'รีเซ็ต',
     llmUseLocal: 'ใช้ฐานความรู้ในระบบอัตโนมัติเมื่อยังไม่ได้ตั้งค่า',
     llmSaved: 'บันทึกการตั้งค่าบริการ AI แล้ว',
+    llmTest: 'Kiểm tra kết nối',
+    llmTesting: 'Đang kiểm tra…',
+    llmTestOk: '✓ Đã kết nối',
+    llmTestNoKey: 'Vui lòng nhập API Key trước',
+    llmTestNoEndpoint: 'Endpoint trống',
+    llmTestProxyDown: 'Proxy cục bộ chưa chạy, hãy khởi động trước',
+    llmTestKeyInvalid: 'API Key không hợp lệ, kiểm tra và thử lại',
+    llmTestModelError: 'Sai tên model hoặc Bot ID, hãy kiểm tra',
+    llmTestFail: 'Kết nối thất bại, kiểm tra cấu hình',
   },
   tcmOverview: {
     title: 'ภาพรวมสุขภาพแผนจีน',
@@ -2390,6 +2444,15 @@ const id: PortalMessages = {
     llmReset: 'Reset',
     llmUseLocal: 'Gunakan basis pengetahuan lokal otomatis jika belum dikonfigurasi',
     llmSaved: 'Konfigurasi layanan AI tersimpan',
+    llmTest: 'اختبار الاتصال',
+    llmTesting: 'جارٍ الاختبار…',
+    llmTestOk: '✓ تم الاتصال',
+    llmTestNoKey: 'يرجى إدخال مفتاح API أولاً',
+    llmTestNoEndpoint: 'عنوان الواجهة فارغ',
+    llmTestProxyDown: 'الوكيل المحلي غير مفعل، قم بتشغيله أولاً',
+    llmTestKeyInvalid: 'مفتاح API غير صالح، تحقق وأعد المحاولة',
+    llmTestModelError: 'اسم النموذج أو Bot ID خاطئ',
+    llmTestFail: 'فشل الاتصال، تحقق من الإعدادات',
   },
   tcmOverview: {
     title: 'Ringkasan Kesehatan TCM',
@@ -2743,6 +2806,15 @@ const ms: PortalMessages = {
     llmReset: 'Set Semula',
     llmUseLocal: 'Guna pangkalan pengetahuan tempatan secara automatik jika belum dikonfigurasi',
     llmSaved: 'Konfigurasi perkhidmatan AI disimpan',
+    llmTest: 'Test Connection',
+    llmTesting: 'Testing…',
+    llmTestOk: '✓ Connected',
+    llmTestNoKey: 'Please enter API Key first',
+    llmTestNoEndpoint: 'Endpoint is empty',
+    llmTestProxyDown: 'Local proxy not running; start it first (desktop starts automatically)',
+    llmTestKeyInvalid: 'Invalid API Key, please check and retry',
+    llmTestModelError: 'Wrong model name or Bot ID, please check',
+    llmTestFail: 'Connection failed, check config',
   },
   tcmOverview: {
     title: 'Ringkasan Kesihatan TCM',
@@ -3096,6 +3168,15 @@ const fil: PortalMessages = {
     llmReset: 'I-reset',
     llmUseLocal: 'Gamitin ang lokal na knowledge base kung hindi pa naka-configure',
     llmSaved: 'Nai-save ang configuration ng AI service',
+    llmTest: '测试连接',
+    llmTesting: '测试中…',
+    llmTestOk: '✓ 连接成功',
+    llmTestNoKey: '请先填写 API Key',
+    llmTestNoEndpoint: '接口地址为空',
+    llmTestProxyDown: '本地代理未启动，请先启动代理（桌面端自动启动）',
+    llmTestKeyInvalid: 'API Key 无效，请检查后重试',
+    llmTestModelError: '模型名或 Bot ID 错误，请检查',
+    llmTestFail: '连接失败，请检查配置',
   },
   tcmOverview: {
     title: 'Overview ng Kalusugang TCM',

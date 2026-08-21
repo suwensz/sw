@@ -6,7 +6,7 @@
 import { computed, ref, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { askAI, LLM_PROVIDERS } from '@/services/llm'
+import { askAI, LLM_PROVIDERS, testLLMConnection, type LlmProbeCode } from '@/services/llm'
 import { useLlmConfigStore } from '@/stores/llmConfig'
 import type { Domain } from '@/services/knowledge'
 
@@ -79,6 +79,29 @@ function onOpen() {
 function onSaveConfig() {
   ElMessage.success(t('portal.agentsCenter.llmSaved'))
   showConfig.value = false
+}
+
+/* ---------------- 一键测试连接 ---------------- */
+const testing = ref(false)
+const testResult = ref<{ code: LlmProbeCode; detail?: string } | null>(null)
+
+function probeLabel(code: LlmProbeCode): string {
+  const key = `portal.agentsCenter.llmTest${code === 'OK' ? 'Ok' : code === 'NO_KEY' ? 'NoKey' : code === 'NO_ENDPOINT' ? 'NoEndpoint' : code === 'PROXY_DOWN' ? 'ProxyDown' : code === 'KEY_INVALID' ? 'KeyInvalid' : code === 'MODEL_ERROR' ? 'ModelError' : 'Fail'}`
+  return t(key)
+}
+
+async function testConnection() {
+  if (testing.value) return
+  testing.value = true
+  testResult.value = null
+  try {
+    const r = await testLLMConnection()
+    testResult.value = { code: r.code, detail: r.detail }
+  } catch {
+    testResult.value = { code: 'PROXY_DOWN' }
+  } finally {
+    testing.value = false
+  }
 }
 
 async function send(text?: string) {
@@ -223,7 +246,19 @@ function onVoiceClick() {
         <div class="ac-config-actions">
           <el-button type="primary" @click="onSaveConfig">{{ t('portal.agentsCenter.llmSave') }}</el-button>
           <el-button plain @click="llmStore.reset">{{ t('portal.agentsCenter.llmReset') }}</el-button>
+          <el-button
+            :loading="testing"
+            :type="testResult ? (testResult.code === 'OK' ? 'success' : 'warning') : 'default'"
+            plain
+            @click="testConnection"
+          >
+            {{ testing ? t('portal.agentsCenter.llmTesting') : t('portal.agentsCenter.llmTest') }}
+          </el-button>
           <span class="ac-config-hint">{{ t('portal.agentsCenter.llmUseLocal') }}</span>
+        </div>
+        <div v-if="testResult" class="ac-probe" :class="testResult.code === 'OK' ? 'ok' : 'fail'">
+          <span class="ac-probe-label">{{ probeLabel(testResult.code) }}</span>
+          <span v-if="testResult.detail" class="ac-probe-detail">{{ testResult.detail }}</span>
         </div>
       </el-form>
     </div>
@@ -355,6 +390,36 @@ function onVoiceClick() {
 .ac-config-hint {
   font-size: 11.5px;
   color: var(--color-text-secondary, #909399);
+}
+.ac-probe {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.ac-probe.ok {
+  color: #1a6b5c;
+  background: #eef7f2;
+  border: 1px solid #d5e9e0;
+}
+.ac-probe.fail {
+  color: #a8502f;
+  background: #fdf2ee;
+  border: 1px solid #f3ddd2;
+}
+.ac-probe-label {
+  font-weight: 700;
+}
+.ac-probe-detail {
+  font-size: 11px;
+  opacity: 0.85;
+  word-break: break-all;
+  max-height: 60px;
+  overflow-y: auto;
 }
 
 /* 消息区 */
