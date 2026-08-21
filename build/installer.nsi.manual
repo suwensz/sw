@@ -1,0 +1,121 @@
+; 素衡OS (Suheng OS) - Windows 安装脚本
+; 使用 NSIS 编译，生成单文件安装包
+; Unicode 版本，主程序用英文名避免编码问题
+
+!include "MUI2.nsh"
+!include "LogicLib.nsh"
+
+; 基本配置
+Name "SuhengOS"
+OutFile "..\release\SuhengOS-Setup-1.0.0.exe"
+InstallDir "$PROGRAMFILES64\SuhengOS"
+InstallDirRegKey HKLM "Software\SuhengOS" "InstallDir"
+RequestExecutionLevel admin
+SetCompressor /FINAL zlib
+Unicode true
+
+; 版本信息
+VIProductVersion "1.0.0.0"
+VIAddVersionKey /LANG=2052 "ProductName" "SuhengOS"
+VIAddVersionKey /LANG=2052 "FileDescription" "TCM Health & Cross-border E-commerce Desktop"
+VIAddVersionKey /LANG=2052 "CompanyName" "Suheng OS"
+VIAddVersionKey /LANG=2052 "LegalCopyright" "(c) 2026 Suheng OS"
+VIAddVersionKey /LANG=2052 "FileVersion" "1.0.0"
+
+; 安装程序界面（使用英文资源避免 Linux 编译时中文 codepage 问题）
+!define MUI_ABORTWARNING
+!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
+!define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
+!define MUI_WELCOMEPAGE_TITLE "SuhengOS Setup"
+!define MUI_WELCOMEPAGE_TEXT "This wizard will install SuhengOS (TCM Health & Cross-border E-commerce) on your computer.$\r$\n$\r$\nClick Next to continue."
+!define MUI_FINISHPAGE_RUN "$INSTDIR\SuhengOS.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "Launch SuhengOS"
+
+; 页面
+!insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_PAGE_FINISH
+
+; 卸载页面
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+
+; 语言
+!insertmacro MUI_LANGUAGE "English"
+
+; 源文件目录（绝对路径）
+!define SRCDIR "..\release\win-unpacked"
+
+; ===== 安装区段 =====
+Section "Install"
+  SetOutPath "$INSTDIR"
+
+  ; 复制 Electron 运行时（主程序为英文名 SuhengOS.exe）
+  File "${SRCDIR}\SuhengOS.exe"
+  File "${SRCDIR}\*.dll"
+  File "${SRCDIR}\*.pak"
+  File "${SRCDIR}\*.bin"
+  File "${SRCDIR}\*.dat"
+  File "${SRCDIR}\*.json"
+  File "${SRCDIR}\*.html"
+  File "${SRCDIR}\*.txt"
+
+  ; resources 目录（含 app.asar）
+  SetOutPath "$INSTDIR\resources"
+  File "${SRCDIR}\resources\app.asar"
+
+  ; locales 目录
+  SetOutPath "$INSTDIR\locales"
+  File "${SRCDIR}\locales\*.pak"
+
+  ; 回到安装目录创建快捷方式
+  SetOutPath "$INSTDIR"
+
+  ; 写注册表（用于卸载）
+  WriteRegStr HKLM "Software\SuhengOS" "InstallDir" "$INSTDIR"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SuhengOS" "DisplayName" "SuhengOS (TCM Health Platform)"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SuhengOS" "DisplayIcon" "$INSTDIR\SuhengOS.exe"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SuhengOS" "UninstallString" "$INSTDIR\uninstall.exe"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SuhengOS" "DisplayVersion" "1.0.0"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SuhengOS" "Publisher" "Suheng OS"
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SuhengOS" "NoModify" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SuhengOS" "NoRepair" 1
+
+  ; 开始菜单快捷方式（中文显示名）
+  CreateDirectory "$SMPROGRAMS\SuhengOS"
+  CreateShortcut "$SMPROGRAMS\SuhengOS\SuhengOS.lnk" "$INSTDIR\SuhengOS.exe" "" "$INSTDIR\SuhengOS.exe" 0
+  CreateShortcut "$SMPROGRAMS\SuhengOS\Uninstall.lnk" "$INSTDIR\uninstall.exe"
+
+  ; 桌面快捷方式（中文显示名 "素衡OS"）
+  CreateShortcut "$DESKTOP\SuhengOS.lnk" "$INSTDIR\SuhengOS.exe" "" "$INSTDIR\SuhengOS.exe" 0
+
+  ; 卸载程序
+  WriteUninstaller "$INSTDIR\uninstall.exe"
+SectionEnd
+
+; ===== 卸载区段 =====
+Section "Uninstall"
+  Delete "$INSTDIR\SuhengOS.exe"
+  Delete "$INSTDIR\uninstall.exe"
+  Delete "$INSTDIR\*.dll"
+  Delete "$INSTDIR\*.pak"
+  Delete "$INSTDIR\*.bin"
+  Delete "$INSTDIR\*.dat"
+  Delete "$INSTDIR\*.json"
+  Delete "$INSTDIR\*.html"
+  Delete "$INSTDIR\*.txt"
+  Delete "$INSTDIR\resources\app.asar"
+  RMDir "$INSTDIR\resources"
+  Delete "$INSTDIR\locales\*.pak"
+  RMDir "$INSTDIR\locales"
+  RMDir "$INSTDIR"
+
+  Delete "$SMPROGRAMS\SuhengOS\SuhengOS.lnk"
+  Delete "$SMPROGRAMS\SuhengOS\Uninstall.lnk"
+  RMDir "$SMPROGRAMS\SuhengOS"
+  Delete "$DESKTOP\SuhengOS.lnk"
+
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SuhengOS"
+  DeleteRegKey HKLM "Software\SuhengOS"
+SectionEnd

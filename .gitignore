@@ -1,0 +1,26 @@
+# 依赖
+node_modules/
+.pnpm-store/
+
+# 构建产物
+dist/
+dist-portals/
+release/
+out/
+
+# 日志
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# TypeScript 增量缓存
+*.tsbuildinfo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
