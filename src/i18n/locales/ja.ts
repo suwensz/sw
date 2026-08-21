@@ -42,6 +42,11 @@ export default {
     logout: 'ログアウト',
     downloadApp: 'デスクトップ版',
   },
+  wake: {
+    greeting: 'ご主人様、こんにちは。素衡がいつもそばでお守りしております。何かご用でしょうか？どうぞお申し付けください。',
+    listening: '指示をお聞かせください…',
+    thinking: '考えています…',
+  },
   auth: {
     login: 'ログイン',
     register: '新規登録',

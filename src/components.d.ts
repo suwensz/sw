@@ -7,6 +7,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AgentChatDialog: typeof import('./components/AgentChatDialog.vue')['default']
     AgentWakeOverlay: typeof import('./components/AgentWakeOverlay.vue')['default']
     AppFooter: typeof import('./components/AppFooter.vue')['default']
     AppNavbar: typeof import('./components/AppNavbar.vue')['default']
@@ -44,5 +45,6 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SocialChatDialog: typeof import('./components/SocialChatDialog.vue')['default']
     SocialSwitcher: typeof import('./components/SocialSwitcher.vue')['default']
+    VoiceAssistant: typeof import('./components/VoiceAssistant.vue')['default']
   }
 }

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import PortalLayout from '@/portals/common/PortalLayout.vue'
 import OrderAgentWidget from './components/OrderAgentWidget.vue'
+import VoiceAssistant from '@/components/VoiceAssistant.vue'
 import { opsMenuGroups } from './menu'
 
 const route = useRoute()
@@ -29,5 +30,7 @@ const isAuthPage = computed(() => route.path === '/login')
     />
     <!-- 右下角：接单提醒智能体 -->
     <OrderAgentWidget />
+    <!-- 全系统语音唤醒助手 -->
+    <VoiceAssistant />
   </template>
 </template>

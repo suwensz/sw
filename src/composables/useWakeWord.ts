@@ -1,7 +1,10 @@
-// 「素衡素衡」语音唤醒 —— 基于 Web Speech API 的唤醒词监听
-// 开启后持续后台监听，识别到「素衡素衡」即广播全局唤醒事件
-// （由 AgentWakeOverlay 弹层接管展示：全系统智能体逐个点亮）
-// 模块级单例：ChatPage / InquiryAssistant / 任何组件 useWakeWord() 都共享同一份状态
+// 「素衡素衡」语音唤醒 —— 基于 Web Speech API 的唤醒词监听 + 语音指令
+// 开启后持续后台监听，识别到「素衡素衡」即：
+//   1. 优雅女声问候（wake.greeting：主人您好，您的素衡一直陪伴着您…）
+//   2. 广播全局唤醒事件 suheng:wake（AgentWakeOverlay 弹层接管全系统展示）
+//   3. 进入「指令聆听」模式：捕获随后的语音指令，回调 onCommand 处理
+//      （由 VoiceAssistant 全局组件把指令交给 AI 回答并用语音播报）
+// 模块级单例：任何组件 useWakeWord() 都共享同一份状态
 import { ref, type Ref } from 'vue'
 import { i18n } from '@/i18n'
 import { ElMessage } from 'element-plus'
@@ -9,6 +12,10 @@ import { speakBroadcast } from '@/composables/useSpeech'
 
 const STORAGE_KEY = 'qh_wake_enabled'
 export const WAKE_EVENT = 'suheng:wake'
+/** 指令聆听最长等待（毫秒） */
+const COMMAND_WINDOW = 15000
+/** 指令提交防抖（等待语音停顿，毫秒） */
+const COMMAND_DEBOUNCE = 1800
 
 type AnySpeechRecognition = {
   continuous: boolean
@@ -32,6 +39,13 @@ export function matchWakeWord(text: string): boolean {
   return normalized.includes('素衡素衡') || /素.{0,2}衡.{0,3}素.{0,2}衡/.test(normalized)
 }
 
+/** 从识别文本中提取指令：去除「素衡素衡」及标点填充 */
+export function extractCommand(text: string): string {
+  let s = text.replace(/素衡素衡/g, '').replace(/素衡/g, '')
+  s = s.replace(/[\s,，.。!！?？、;；:：'"'“”‘’·—\-]/g, '')
+  return s.trim()
+}
+
 /** 手动触发全系统唤醒（导航栏按钮等场景），受冷却限制 */
 export function dispatchFullWake() {
   window.dispatchEvent(new CustomEvent(WAKE_EVENT))
@@ -45,6 +59,15 @@ let _recog: AnySpeechRecognition | null = null
 let _lastWakeAt = 0
 let _restartTimer: number | null = null
 let _autoStartDone = false
+
+// 指令聆听状态
+let _mode: 'idle' | 'command' = 'idle'
+let _commandBuf = ''
+let _commandHandler: ((cmd: string) => void) | null = null
+let _commandTimer: number | null = null
+let _debounceTimer: number | null = null
+/** 指令聆听状态（响应式，供 UI 展示「聆听中」指示） */
+export const commandState = ref<'idle' | 'listening'>('idle')
 
 /** 取翻译（从 i18n 实例的全局 t，避免 useI18n() 必须 setup 调用） */
 function tr(key: string): string {
@@ -66,14 +89,63 @@ function safeStart() {
   }
 }
 
+function clearCommandTimers() {
+  if (_commandTimer) {
+    window.clearTimeout(_commandTimer)
+    _commandTimer = null
+  }
+  if (_debounceTimer) {
+    window.clearTimeout(_debounceTimer)
+    _debounceTimer = null
+  }
+}
+
+function exitCommand() {
+  clearCommandTimers()
+  _mode = 'idle'
+  _commandBuf = ''
+  commandState.value = 'idle'
+}
+
+/** 指令提交：交给注册的处理器（VoiceAssistant） */
+function submitCommand() {
+  clearCommandTimers()
+  _mode = 'idle'
+  commandState.value = 'idle'
+  const handler = _commandHandler
+  const cmd = _commandBuf
+  _commandBuf = ''
+  if (handler && cmd) handler(cmd)
+}
+
 function triggerWake() {
   const now = Date.now()
   if (now - _lastWakeAt < 6000) return // 6 秒冷却，避免连续触发
   _lastWakeAt = now
-  // 优雅女声应答：主人，我在（受语音播报开关控制）
-  speakBroadcast(tr('wake.reply'))
+  // 优雅女声应答：主人您好，您的素衡一直陪伴着您，有什么需要？请告诉我
+  speakBroadcast(tr('wake.greeting'))
   // 广播全局唤醒事件：AgentWakeOverlay 弹层接管全系统唤醒展示
   window.dispatchEvent(new CustomEvent(WAKE_EVENT))
+  // 进入指令聆听模式（若有处理器）
+  if (_commandHandler) {
+    _mode = 'command'
+    _commandBuf = ''
+    commandState.value = 'listening'
+    clearCommandTimers()
+    _commandTimer = window.setTimeout(exitCommand, COMMAND_WINDOW)
+  }
+}
+
+/** 指令内容更新：防抖提交 */
+function onCommandCandidate(cmd: string, isFinal: boolean) {
+  if (!cmd) return
+  _commandBuf = cmd
+  if (isFinal) {
+    submitCommand()
+    return
+  }
+  if (_debounceTimer) window.clearTimeout(_debounceTimer)
+  _debounceTimer = window.setTimeout(submitCommand, COMMAND_DEBOUNCE)
 }
 
 function ensureRecognition() {
@@ -86,8 +158,15 @@ function ensureRecognition() {
   r.lang = 'zh-CN'
   r.onresult = (e: any) => {
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      const text: string = e.results[i]?.[0]?.transcript || ''
-      if (matchWakeWord(text)) triggerWake()
+      const seg = e.results[i]
+      const text: string = seg?.[0]?.transcript || ''
+      if (_mode === 'idle') {
+        if (matchWakeWord(text)) triggerWake()
+      } else {
+        // 指令聆听：提取去唤醒词后的文本
+        const cmd = extractCommand(text)
+        if (cmd && cmd.length >= 1) onCommandCandidate(cmd, !!seg?.isFinal)
+      }
     }
   }
   r.onerror = (e: any) => {
@@ -124,6 +203,7 @@ function stop() {
     window.clearTimeout(_restartTimer)
     _restartTimer = null
   }
+  exitCommand()
   try {
     _recog?.stop()
   } catch {
@@ -143,6 +223,21 @@ function toggle() {
     stop()
     ElMessage.info(tr('wake.disabled'))
   }
+}
+
+/**
+ * 注册语音指令处理器：
+ * 唤醒后用户接着说的话（去除唤醒词）会作为指令回调。
+ * 传 null 则关闭指令聆听（保持仅唤醒展示）。
+ */
+export function setCommandHandler(handler: ((cmd: string) => void) | null) {
+  _commandHandler = handler
+  if (!handler) exitCommand()
+}
+
+/** 当前是否正处于「指令聆听」状态（供 UI 展示聆听指示） */
+export function isListeningCommand(): boolean {
+  return _mode === 'command'
 }
 
 export function useWakeWord() {

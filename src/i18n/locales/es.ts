@@ -42,6 +42,11 @@ export default {
     logout: 'Cerrar sesión',
     downloadApp: 'App de escritorio',
   },
+  wake: {
+    greeting: 'Hola, mi amo. Su Suheng siempre le acompaña. ¿Qué necesita? Por favor, dígame.',
+    listening: 'Por favor, diga su instrucción…',
+    thinking: 'Pensando…',
+  },
   auth: {
     login: 'Iniciar sesión',
     register: 'Registrarse',

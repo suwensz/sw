@@ -12,6 +12,7 @@
     <InquiryAssistant />
     <SocialChatDialog />
     <AgentWakeOverlay />
+    <VoiceAssistant />
   </div>
 </template>
 
@@ -22,6 +23,7 @@ import AppFooter from '@/components/AppFooter.vue'
 import InquiryAssistant from '@/components/InquiryAssistant.vue'
 import SocialChatDialog from '@/components/SocialChatDialog.vue'
 import AgentWakeOverlay from '@/components/AgentWakeOverlay.vue'
+import VoiceAssistant from '@/components/VoiceAssistant.vue'
 </script>
 
 <style scoped>

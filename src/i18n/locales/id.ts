@@ -42,6 +42,11 @@ export default {
     logout: 'Keluar',
     downloadApp: 'Aplikasi Desktop',
   },
+  wake: {
+    greeting: 'Halo, Tuan. Suheng Anda selalu menemani Anda. Ada yang Anda butuhkan? Silakan sampaikan.',
+    listening: 'Silakan ucapkan perintah Anda…',
+    thinking: 'Sedang berpikir…',
+  },
   auth: {
     login: 'Masuk',
     register: 'Daftar',

@@ -42,6 +42,11 @@ export default {
     logout: '로그아웃',
     downloadApp: '데스크톱 앱',
   },
+  wake: {
+    greeting: '주인님, 안녕하세요. 당신의 소형이 항상 곁에서 지켜드리고 있습니다. 무엇이 필요하신가요? 말씀해 주세요.',
+    listening: '지시를 말씀해 주세요…',
+    thinking: '생각하고 있습니다…',
+  },
   auth: {
     login: '로그인',
     register: '회원가입',

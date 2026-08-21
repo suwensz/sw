@@ -42,6 +42,11 @@ export default {
     logout: 'Déconnexion',
     downloadApp: 'Application bureau',
   },
+  wake: {
+    greeting: 'Bonjour, mon maître. Votre Suheng vous accompagne toujours. De quoi avez-vous besoin ? Dites-le-moi, s\u2019il vous plaît.',
+    listening: 'Veuillez énoncer votre instruction…',
+    thinking: 'Je réfléchis…',
+  },
   auth: {
     login: 'Connexion',
     register: "S'inscrire",

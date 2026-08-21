@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import PortalLayout from '@/portals/common/PortalLayout.vue'
+import VoiceAssistant from '@/components/VoiceAssistant.vue'
 import { adminMenuGroups } from './menu'
 
 const route = useRoute()
@@ -25,4 +26,6 @@ const isAuthPage = computed(() => route.path === '/login')
     :groups="adminMenuGroups"
     :portal-tag="portalMeta.portalTag"
   />
+  <!-- 全系统语音唤醒助手 -->
+  <VoiceAssistant v-if="!isAuthPage" />
 </template>

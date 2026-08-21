@@ -42,6 +42,11 @@ export default {
     logout: 'Mag-logout',
     downloadApp: 'Desktop App',
   },
+  wake: {
+    greeting: 'Kumusta, aking panginoon. Ang iyong Suheng ay laging kasama mo. Ano ang kailangan mo? Mangyaring sabihin sa akin.',
+    listening: 'Mangyaring sabihin ang iyong utos…',
+    thinking: 'Nag-iisip…',
+  },
   auth: {
     login: 'Mag-sign In',
     register: 'Mag-sign Up',

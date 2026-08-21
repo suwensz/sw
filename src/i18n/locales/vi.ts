@@ -42,6 +42,11 @@ export default {
     logout: 'Đăng xuất',
     downloadApp: 'Ứng dụng Desktop',
   },
+  wake: {
+    greeting: 'Xin chào, chủ nhân. Suheng của bạn luôn bên cạnh bạn. Bạn cần gì? Xin hãy nói cho tôi biết.',
+    listening: 'Xin hãy nói chỉ thị của bạn…',
+    thinking: 'Đang suy nghĩ…',
+  },
   auth: {
     login: 'Đăng nhập',
     register: 'Đăng ký',
