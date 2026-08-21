@@ -3,7 +3,7 @@
 // 三种模式：tcm 中医健康 / ecom 跨境电商 / domestic 国内电商
 // 回答引擎：services/llm.askAI —— 已配置 AI 服务（DeepSeek/豆包/扣子免费版）走云端，
 //          未配置时回退本系统内置知识库（中医大数据 / 采购信息数据库 / 淘宝拼多多京东数据库）。
-import { computed, ref, nextTick } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { askAI, LLM_PROVIDERS, testLLMConnection, type LlmProbeCode } from '@/services/llm'
@@ -22,7 +22,6 @@ const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>()
 const { t } = useI18n()
 const llmStore = useLlmConfigStore()
 
-const messages = ref<ChatMsg[]>([])
 const input = ref('')
 const loading = ref(false)
 const showConfig = ref(false)
@@ -34,7 +33,30 @@ const visible = computed({
   set: (v) => emit('update:modelValue', v),
 })
 
+/** 统一对话框新增：三域 Tab 切换 */
+const isUnified = computed(() => props.domain === 'general')
+
 type DialogDomain = Exclude<Domain, 'general'>
+const ALL_DOMAINS: DialogDomain[] = ['tcm', 'ecom', 'domestic']
+const currentDomain = ref<DialogDomain>(isUnified.value ? 'tcm' : (props.domain as DialogDomain))
+
+watch(
+  () => props.domain,
+  (d) => {
+    if (d === 'general') {
+      if (!ALL_DOMAINS.includes(currentDomain.value)) currentDomain.value = 'tcm'
+    } else {
+      currentDomain.value = d as DialogDomain
+    }
+  },
+)
+
+watch(currentDomain, () => {
+  showConfig.value = false
+  ensureWelcome()
+  scrollBottom()
+})
+
 const DOMAIN_META: Record<DialogDomain, { titleKey: string; descKey: string; icon: string; color: string; quickKeys: string[] }> = {
   tcm: {
     titleKey: 'portal.agentsCenter.dialogTcm',
@@ -59,8 +81,21 @@ const DOMAIN_META: Record<DialogDomain, { titleKey: string; descKey: string; ico
   },
 }
 
-const domainMeta = computed(() => DOMAIN_META[props.domain as DialogDomain] ?? DOMAIN_META.tcm)
+const domainTabs = computed(() =>
+  ALL_DOMAINS.map((d) => ({
+    domain: d,
+    labelKey: DOMAIN_META[d].titleKey,
+    icon: DOMAIN_META[d].icon,
+    color: DOMAIN_META[d].color,
+  })),
+)
+
+const domainMeta = computed(() => DOMAIN_META[currentDomain.value])
 const quickQuestions = computed(() => domainMeta.value.quickKeys.map((k) => t(`portal.agentsCenter.${k}`)))
+
+/** 各域独立聊天记录 */
+const messagesMap = ref<Record<DialogDomain, ChatMsg[]>>({ tcm: [], ecom: [], domestic: [] })
+const messages = computed(() => messagesMap.value[currentDomain.value])
 
 function scrollBottom() {
   nextTick(() => {
@@ -68,10 +103,18 @@ function scrollBottom() {
   })
 }
 
-function onOpen() {
+function ensureWelcome() {
   if (!messages.value.length) {
-    messages.value.push({ role: 'assistant', content: t('portal.agentsCenter.chatWelcome'), source: 'local' })
+    messages.value.push({
+      role: 'assistant',
+      content: t('portal.agentsCenter.chatWelcome'),
+      source: 'local',
+    })
   }
+}
+
+function onOpen() {
+  ensureWelcome()
   showConfig.value = false
   scrollBottom()
 }
@@ -115,7 +158,7 @@ async function send(text?: string) {
     const history = messages.value
       .slice(0, -1)
       .map((m) => ({ role: m.role, content: m.content }))
-    const res = await askAI(props.domain, q, history)
+    const res = await askAI(currentDomain.value, q, history)
     messages.value.push({ role: 'assistant', content: res.answer, source: res.source })
   } finally {
     loading.value = false
@@ -201,6 +244,25 @@ function onVoiceClick() {
         <div class="ac-sub">{{ t(domainMeta.descKey) }}</div>
       </div>
     </template>
+
+    <!-- 三域合一：Tab 切换 -->
+    <div v-if="isUnified" class="ac-tabs">
+      <button
+        v-for="tab in domainTabs"
+        :key="tab.domain"
+        class="ac-tab"
+        :class="{ 'is-active': currentDomain === tab.domain }"
+        :style="{
+          '--tab-color': tab.color,
+          color: currentDomain === tab.domain ? '#faf8f3' : tab.color,
+          background: currentDomain === tab.domain ? tab.color : tab.color + '18',
+        }"
+        @click="currentDomain = tab.domain"
+      >
+        <el-icon :size="14"><component :is="tab.icon" /></el-icon>
+        {{ t(tab.labelKey) }}
+      </button>
+    </div>
 
     <!-- AI 服务配置（DeepSeek / 豆包 / 扣子免费版） -->
     <div v-if="showConfig" class="ac-config">
@@ -538,5 +600,28 @@ function onVoiceClick() {
 @keyframes ac-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(224, 82, 63, 0.45); }
   50% { box-shadow: 0 0 0 9px rgba(224, 82, 63, 0); }
+}
+
+/* 三域合一 Tab */
+.ac-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ac-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.ac-tab:hover {
+  filter: brightness(1.08);
 }
 </style>

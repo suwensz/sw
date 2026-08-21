@@ -25,25 +25,11 @@ const activeDialog = ref<Domain | null>(null)
 
 const DIALOG_CARDS: Array<{ domain: Domain; titleKey: string; descKey: string; icon: string; color: string }> = [
   {
-    domain: 'tcm',
-    titleKey: 'portal.agentsCenter.dialogTcm',
-    descKey: 'portal.agentsCenter.dialogTcmDesc',
-    icon: 'FirstAidKit',
+    domain: 'general',
+    titleKey: 'portal.agentsCenter.dialogUnified',
+    descKey: 'portal.agentsCenter.dialogUnifiedDesc',
+    icon: 'ChatLineRound',
     color: '#1a6b5c',
-  },
-  {
-    domain: 'ecom',
-    titleKey: 'portal.agentsCenter.dialogEcom',
-    descKey: 'portal.agentsCenter.dialogEcomDesc',
-    icon: 'ShoppingCart',
-    color: '#b8860b',
-  },
-  {
-    domain: 'domestic',
-    titleKey: 'portal.agentsCenter.dialogDomestic',
-    descKey: 'portal.agentsCenter.dialogDomesticDesc',
-    icon: 'Shop',
-    color: '#c05f3a',
   },
 ]
 

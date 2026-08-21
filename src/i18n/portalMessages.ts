@@ -239,6 +239,9 @@ type PortalMessages = {
     dialogEcomDesc: string
     dialogDomestic: string
     dialogDomesticDesc: string
+    /** 三域合一对话框 */
+    dialogUnified: string
+    dialogUnifiedDesc: string
     /** 对话界面 */
     chatWelcome: string
     chatPlaceholder: string
@@ -627,6 +630,8 @@ const zh: PortalMessages = {
     dialogEcomDesc: '对接跨境采购信息数据库，支持询盘、报价、MOQ、产能查询',
     dialogDomestic: '国内电商对话框',
     dialogDomesticDesc: '对接淘宝、拼多多、京东数据库',
+    dialogUnified: 'AI 内容生成对话框',
+    dialogUnifiedDesc: '中医健康、跨境电商、国内电商三域合一，点击进入后可在 Tab 间切换领域智能创作',
     chatWelcome: '您好，我是素衡智能体，已接入本系统内置知识库与 AI 云端，请问有什么可以帮您？',
     chatPlaceholder: '请输入您的问题…',
     chatSend: '发送',
@@ -1009,6 +1014,8 @@ const en: PortalMessages = {
     dialogEcomDesc: 'Powered by the cross-border procurement database: inquiries, quotes, MOQ, capacity',
     dialogDomestic: 'Domestic E-commerce Dialog',
     dialogDomesticDesc: 'Powered by Taobao, Pinduoduo and JD databases',
+    dialogUnified: 'AI Content Generation',
+    dialogUnifiedDesc: 'TCM health, cross-border and domestic e-commerce in one dialog — switch tabs inside',
     chatWelcome: 'Hello, I am the Suheng agent, connected to the built-in knowledge base and AI cloud. How can I help you?',
     chatPlaceholder: 'Type your question...',
     chatSend: 'Send',
@@ -1391,6 +1398,8 @@ const ar: PortalMessages = {
     dialogEcomDesc: 'مدعوم بقاعدة بيانات المشتريات: استفسارات وعروض أسعار وكميات وطاقات',
     dialogDomestic: 'مربع حوار التجارة المحلية',
     dialogDomesticDesc: 'مدعوم بقواعد بيانات توباو وبيندودو وجي دي',
+    dialogUnified: 'توليد المحتوى بالذكاء الاصطناعي',
+    dialogUnifiedDesc: 'الطب الصيني التقليدي والتجارة الإلكترونية عبر الحدود والتجارة الإلكترونية المحلية في حوار واحد — انتقل بين التبويبات داخل الحوار',
     chatWelcome: 'مرحبا، أنا وكيل سوهينغ، متصل بقاعدة المعرفة المدمجة وسحابة الذكاء الاصطناعي. كيف أساعدك؟',
     chatPlaceholder: 'اكتب سؤالك...',
     chatSend: 'إرسال',
@@ -1773,6 +1782,8 @@ const vi: PortalMessages = {
     dialogEcomDesc: 'Được hỗ trợ bởi cơ sở dữ liệu thu mua: hỏi giá, báo giá, MOQ, năng lực sản xuất',
     dialogDomestic: 'Hộp thoại TMĐT nội địa',
     dialogDomesticDesc: 'Được hỗ trợ bởi cơ sở dữ liệu Taobao, Pinduoduo, JD',
+    dialogUnified: 'AI Tạo Nội Dung',
+    dialogUnifiedDesc: 'Y học cổ truyền Trung Hoa, thương mại điện tử xuyên biên giới và thương mại điện tử trong nước trong một hộp thoại — chuyển tab bên trong',
     chatWelcome: 'Xin chào, tôi là trợ lý Suheng, đã kết nối kho tri thức tích hợp và AI đám mây. Tôi có thể giúp gì cho bạn?',
     chatPlaceholder: 'Nhập câu hỏi của bạn...',
     chatSend: 'Gửi',
@@ -2155,6 +2166,8 @@ const th: PortalMessages = {
     dialogEcomDesc: 'ขับเคลื่อนด้วยฐานข้อมูลจัดซื้อ: สอบถาม ใบเสนอราคา MOQ กำลังการผลิต',
     dialogDomestic: 'กล่องสนทนาอีคอมเมิร์ซในประเทศ',
     dialogDomesticDesc: 'ขับเคลื่อนด้วยฐานข้อมูล Taobao, Pinduoduo, JD',
+    dialogUnified: 'AI สร้างคอนเทนต์',
+    dialogUnifiedDesc: 'สุขภาพแผนจีน อีคอมเมิร์ซข้ามพรมแดน และอีคอมเมิร์ซภายในประเทศ รวมในกล่องโต้ตอบเดียว — สลับแท็บภายใน',
     chatWelcome: 'สวัสดี ฉันคือเอเจนต์ซูเหิง เชื่อมต่อฐานความรู้ในระบบและ AI คลาวด์แล้ว มีอะไรให้ช่วยไหมคะ?',
     chatPlaceholder: 'พิมพ์คำถามของคุณ...',
     chatSend: 'ส่ง',
@@ -2537,6 +2550,8 @@ const id: PortalMessages = {
     dialogEcomDesc: 'Didukung oleh database pengadaan: inquiry, penawaran, MOQ, kapasitas',
     dialogDomestic: 'Dialog E-commerce Domestik',
     dialogDomesticDesc: 'Didukung oleh database Taobao, Pinduoduo, JD',
+    dialogUnified: 'AI Pembuatan Konten',
+    dialogUnifiedDesc: 'Kesehatan TCM, e-commerce lintas batas, dan e-commerce domestik dalam satu dialog — beralih tab di dalamnya',
     chatWelcome: 'Halo, saya agen Suheng, terhubung dengan basis pengetahuan bawaan dan AI cloud. Ada yang bisa saya bantu?',
     chatPlaceholder: 'Ketik pertanyaan Anda...',
     chatSend: 'Kirim',
@@ -2919,6 +2934,8 @@ const ms: PortalMessages = {
     dialogEcomDesc: 'Didorong oleh pangkalan data pembelian: pertanyaan, sebut harga, MOQ, kapasiti',
     dialogDomestic: 'Dialog E-dagang Domestik',
     dialogDomesticDesc: 'Didorong oleh pangkalan data Taobao, Pinduoduo, JD',
+    dialogUnified: 'AI Penjanaan Kandungan',
+    dialogUnifiedDesc: 'Kesihatan TCM, e-dagang rentas sempadan, dan e-dagang domestik dalam satu dialog — tukar tab di dalamnya',
     chatWelcome: 'Halo, saya agen Suheng, berhubung dengan pangkalan pengetahuan terbina dan AI awan. Boleh saya bantu?',
     chatPlaceholder: 'Taip soalan anda...',
     chatSend: 'Hantar',
@@ -3301,6 +3318,8 @@ const fil: PortalMessages = {
     dialogEcomDesc: 'Pinagagana ng procurement database: inquiries, quotes, MOQ, capacity',
     dialogDomestic: 'Dialog sa Domestic E-commerce',
     dialogDomesticDesc: 'Pinagagana ng Taobao, Pinduoduo at JD databases',
+    dialogUnified: 'AI Content Generation',
+    dialogUnifiedDesc: 'TCM health, cross-border at domestic e-commerce sa isang dialog — magpalit ng tab sa loob',
     chatWelcome: 'Kumusta, ako si Suheng agent, konektado sa built-in knowledge base at AI cloud. Paano kita matutulungan?',
     chatPlaceholder: 'I-type ang iyong tanong...',
     chatSend: 'Ipadala',
