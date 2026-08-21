@@ -4,6 +4,14 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { tText } from '@/i18n'
 import {
+  analyzeImage,
+  autoRetouch,
+  fileToImage,
+  generateProductCopy,
+  generateProductVideo,
+  isVideoSupported,
+} from '@/services/mediaAI'
+import {
   SHOWCASE_CATEGORIES,
   showcaseImage,
   type ShowcaseCategoryId,
@@ -118,6 +126,129 @@ const form = reactive({
 
 const formCategory = computed(() => SHOWCASE_CATEGORIES.find((c) => c.id === form.category))
 
+// ===== AI 媒体能力：图片上传 / 自动修图 / AI 文案 / 短视频 =====
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
+const retouching = ref(false)
+const copyLoading = ref(false)
+/** 上传时的原始图（未修图），用于撤销 */
+const originalImage = ref('')
+
+const videoVisible = ref(false)
+const videoLoading = ref(false)
+const videoUrl = ref('')
+const videoDuration = ref(8)
+
+async function acceptFile(file: File | undefined | null) {
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning(t('portal.showcase.ai.notImage'))
+    return
+  }
+  uploading.value = true
+  try {
+    const info = await fileToImage(file)
+    form.image = info.dataUrl
+    originalImage.value = info.dataUrl
+  } catch {
+    ElMessage.error(t('portal.showcase.ai.notImage'))
+  } finally {
+    uploading.value = false
+  }
+}
+
+function onPickFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  void acceptFile(input.files?.[0])
+  input.value = ''
+}
+
+function onDropImage(e: DragEvent) {
+  void acceptFile(e.dataTransfer?.files?.[0])
+}
+
+async function onRetouch() {
+  if (!form.image) {
+    ElMessage.warning(t('portal.showcase.ai.videoNoImage'))
+    return
+  }
+  retouching.value = true
+  try {
+    form.image = await autoRetouch(form.image)
+    ElMessage.success(t('portal.showcase.ai.retouchDone'))
+  } catch {
+    ElMessage.error(t('portal.showcase.ai.retouchDone'))
+  } finally {
+    retouching.value = false
+  }
+}
+
+function onRevertImage() {
+  if (originalImage.value) form.image = originalImage.value
+}
+
+async function onAiCopy() {
+  if (!form.image) {
+    ElMessage.warning(t('portal.showcase.ai.videoNoImage'))
+    return
+  }
+  copyLoading.value = true
+  try {
+    const features = await analyzeImage(form.image)
+    const res = await generateProductCopy({
+      features,
+      categoryLabel: catName(form.category),
+      nameZh: form.nameZh,
+      nameEn: form.nameEn,
+      price: Number(form.price) || 0,
+    })
+    if (!form.nameEn.trim() && res.nameEn) form.nameEn = res.nameEn
+    form.descZh = res.descZh
+    form.descEn = res.descEn
+    form.detailZh = res.detailZh
+    form.detailEn = res.detailEn
+    ElMessage.success(
+      t(res.source === 'llm' ? 'portal.showcase.ai.copyDone' : 'portal.showcase.ai.copyLocal'),
+    )
+  } catch {
+    ElMessage.error(t('portal.showcase.ai.copyLocal'))
+  } finally {
+    copyLoading.value = false
+  }
+}
+
+function openVideoDialog() {
+  if (!form.image) {
+    ElMessage.warning(t('portal.showcase.ai.videoNoImage'))
+    return
+  }
+  videoUrl.value = ''
+  videoVisible.value = true
+}
+
+async function onGenVideo() {
+  if (!form.image || videoLoading.value) return
+  if (!isVideoSupported()) {
+    ElMessage.warning(t('portal.showcase.ai.videoUnsupported'))
+    return
+  }
+  videoLoading.value = true
+  videoUrl.value = ''
+  try {
+    videoUrl.value = await generateProductVideo({
+      image: form.image,
+      title: form.nameZh.trim() || form.nameEn.trim() || catName(form.category),
+      subtitle: form.price > 0 ? `$${form.price}` : '',
+      duration: videoDuration.value,
+    })
+    ElMessage.success(t('portal.showcase.ai.videoDone'))
+  } catch {
+    ElMessage.error(t('portal.showcase.ai.videoUnsupported'))
+  } finally {
+    videoLoading.value = false
+  }
+}
+
 function onMarketChange(code: string) {
   // 切换主销国家时，社交软件自动同步为该国主流应用（仍可手动增删）
   const c = countryOf(code)
@@ -145,6 +276,7 @@ function openAdd() {
     socialApps: [...(countryOf('SA')?.apps ?? [])],
     edge: false,
   })
+  originalImage.value = ''
   editorVisible.value = true
 }
 
@@ -165,11 +297,12 @@ function openEdit(p: ShowcaseEditProduct, e?: Event) {
     stock: p.stock,
     sales: p.sales,
     rating: p.rating,
-    image: p.image.startsWith('data:') ? '' : p.image,
+    image: p.image,
     market: p.market,
     socialApps: [...p.socialApps],
     edge: !!p.edge,
   })
+  originalImage.value = p.image
   editorVisible.value = true
 }
 
@@ -469,7 +602,66 @@ async function resetAll() {
         </div>
         <div class="showcase-form-item showcase-form-item-wide">
           <label>{{ t('portal.showcase.fieldImage') }}</label>
-          <el-input v-model="form.image" :placeholder="t('portal.showcase.fieldImageTip')" clearable />
+          <div
+            class="ai-media"
+            :class="{ 'has-image': !!form.image, 'is-loading': uploading }"
+            role="button"
+            tabindex="0"
+            @click="fileInputRef?.click()"
+            @keydown.enter.prevent="fileInputRef?.click()"
+            @dragover.prevent
+            @drop.prevent="onDropImage"
+          >
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="image/*"
+              hidden
+              @change="onPickFile"
+            />
+            <img v-if="form.image" :src="form.image" class="ai-media-preview" alt="product" />
+            <div v-else class="ai-media-empty">
+              <el-icon :size="28" color="#1a6b5c"><UploadFilled /></el-icon>
+              <span>{{ t('portal.showcase.ai.uploadTip') }}</span>
+            </div>
+            <div v-if="uploading" class="ai-media-mask">
+              <el-icon class="is-loading" :size="22"><Loading /></el-icon>
+            </div>
+          </div>
+          <div class="ai-media-actions">
+            <el-button size="small" :loading="retouching" :disabled="!form.image" @click.stop="onRetouch">
+              <el-icon v-if="!retouching"><MagicStick /></el-icon>
+              {{ t('portal.showcase.ai.retouch') }}
+            </el-button>
+            <el-button
+              v-if="originalImage && originalImage !== form.image"
+              size="small"
+              text
+              @click.stop="onRevertImage"
+            >
+              {{ t('portal.showcase.ai.revert') }}
+            </el-button>
+            <el-button
+              size="small"
+              type="primary"
+              :loading="copyLoading"
+              :disabled="!form.image"
+              @click.stop="onAiCopy"
+            >
+              <el-icon v-if="!copyLoading"><EditPen /></el-icon>
+              {{ t('portal.showcase.ai.copy') }}
+            </el-button>
+            <el-button size="small" plain :disabled="!form.image" @click.stop="openVideoDialog">
+              <el-icon><VideoCamera /></el-icon>
+              {{ t('portal.showcase.ai.video') }}
+            </el-button>
+          </div>
+          <el-input
+            v-model="form.image"
+            :placeholder="t('portal.showcase.fieldImageTip')"
+            clearable
+            class="ai-media-url"
+          />
         </div>
       </div>
 
@@ -517,6 +709,60 @@ async function resetAll() {
         <el-button @click="editorVisible = false">{{ t('portal.showcase.cancel') }}</el-button>
         <el-button type="primary" @click="saveForm">{{ t('portal.showcase.save') }}</el-button>
       </template>
+    </el-dialog>
+
+    <!-- AI 商品短视频合成 -->
+    <el-dialog
+      v-model="videoVisible"
+      width="520px"
+      class="showcase-dialog"
+      append-to-body
+      destroy-on-close
+    >
+      <template #header>
+        <span class="showcase-editor-title">{{ t('portal.showcase.ai.videoTitle') }}</span>
+      </template>
+      <p class="ai-video-tip">{{ t('portal.showcase.ai.videoTip') }}</p>
+      <div class="ai-video-controls">
+        <span class="ai-video-label">{{ t('portal.showcase.ai.videoDuration') }}</span>
+        <el-radio-group v-model="videoDuration" :disabled="videoLoading">
+          <el-radio-button :value="6">6 {{ t('portal.showcase.ai.seconds') }}</el-radio-button>
+          <el-radio-button :value="8">8 {{ t('portal.showcase.ai.seconds') }}</el-radio-button>
+          <el-radio-button :value="12">12 {{ t('portal.showcase.ai.seconds') }}</el-radio-button>
+        </el-radio-group>
+        <el-button
+          type="primary"
+          round
+          :loading="videoLoading"
+          @click="onGenVideo"
+        >
+          <el-icon v-if="!videoLoading"><VideoCamera /></el-icon>
+          {{ t('portal.showcase.ai.videoGen') }}
+        </el-button>
+      </div>
+      <div v-if="videoLoading" class="ai-video-box is-loading-box">
+        <el-icon class="is-loading" :size="30" color="#1a6b5c"><Loading /></el-icon>
+      </div>
+      <video
+        v-else-if="videoUrl"
+        :src="videoUrl"
+        controls
+        autoplay
+        loop
+        muted
+        class="ai-video-box"
+      />
+      <div v-else class="ai-video-box is-empty-box">
+        <el-icon :size="30" color="#c0c4cc"><VideoCamera /></el-icon>
+      </div>
+      <div v-if="videoUrl" class="ai-video-foot">
+        <a :href="videoUrl" download="suheng-product.webm" class="ai-video-download">
+          <el-button type="success" plain round>
+            <el-icon><Download /></el-icon>
+            {{ t('portal.showcase.ai.videoDownload') }}
+          </el-button>
+        </a>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -893,6 +1139,99 @@ async function resetAll() {
   align-items: center;
   gap: 4px;
   font-weight: 600;
+}
+/* AI 媒体能力：上传 / 修图 / 文案 / 短视频 */
+.ai-media {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 180px;
+  border: 1.5px dashed rgba(26, 107, 92, 0.4);
+  border-radius: 12px;
+  background: rgba(26, 107, 92, 0.04);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.ai-media:hover,
+.ai-media.has-image {
+  border-color: #1a6b5c;
+  background: #eef7f2;
+}
+.ai-media-preview {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.ai-media-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary, #909399);
+  padding: 0 16px;
+  text-align: center;
+}
+.ai-media-mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(250, 248, 243, 0.7);
+}
+.ai-media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ai-media-url {
+  margin-top: 8px;
+}
+/* 短视频弹窗 */
+.ai-video-tip {
+  margin: 4px 0 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--color-text-secondary, #909399);
+}
+.ai-video-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.ai-video-label {
+  font-size: 12.5px;
+  color: var(--color-text-regular, #606266);
+}
+.ai-video-box {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  background: #f7faf8;
+  border: 1px solid #e4ebe7;
+  display: block;
+}
+.is-loading-box,
+.is-empty-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ai-video-foot {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+.ai-video-download {
+  text-decoration: none;
 }
 @media (max-width: 640px) {
   .showcase-form-grid {

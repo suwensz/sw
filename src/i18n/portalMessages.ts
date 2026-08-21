@@ -339,6 +339,27 @@ type PortalMessages = {
     cancel: string
     delConfirm: string
     resetConfirm: string
+    /** 新增产品 AI 能力：图片上传 / 自动修图 / AI 文案 / 短视频 */
+    ai: {
+      uploadTip: string
+      notImage: string
+      retouch: string
+      retouchDone: string
+      revert: string
+      copy: string
+      copyDone: string
+      copyLocal: string
+      video: string
+      videoTitle: string
+      videoGen: string
+      videoDone: string
+      videoDownload: string
+      videoUnsupported: string
+      videoTip: string
+      videoDuration: string
+      videoNoImage: string
+      seconds: string
+    }
     cats: {
       hardware: string
       appliance: string
@@ -701,6 +722,26 @@ const zh: PortalMessages = {
     cancel: '取消',
     delConfirm: '确定删除该产品吗？',
     resetConfirm: '确定恢复全部默认产品吗？',
+    ai: {
+      uploadTip: '点击或拖拽图片到此处（JPG / PNG，自动压缩）',
+      notImage: '请选择图片文件',
+      retouch: '自动修图',
+      retouchDone: '自动修图完成',
+      revert: '撤销修图',
+      copy: 'AI 识别写文案',
+      copyDone: 'AI 已识别图片并生成中英双语文案',
+      copyLocal: '本地引擎已按图片特征生成文案',
+      video: '生成短视频',
+      videoTitle: 'AI 商品短视频',
+      videoGen: '生成视频',
+      videoDone: '短视频生成完成',
+      videoDownload: '下载视频',
+      videoUnsupported: '当前浏览器不支持视频合成，请使用 Chrome / Edge',
+      videoTip: 'AI 合成商品短视频：品牌背景 + 图片 Ken Burns 动态展示 + 标题与价格字幕，生成后可下载（webm）',
+      videoDuration: '视频时长',
+      videoNoImage: '请先上传商品图片',
+      seconds: '秒',
+    },
     cats: {
       hardware: '五金/建材',
       appliance: '家电',
@@ -1063,6 +1104,26 @@ const en: PortalMessages = {
     cancel: 'Cancel',
     delConfirm: 'Delete this product?',
     resetConfirm: 'Restore all default products?',
+    ai: {
+      uploadTip: 'Click or drag an image here (JPG / PNG, auto-compressed)',
+      notImage: 'Please select an image file',
+      retouch: 'Auto Retouch',
+      retouchDone: 'Auto retouch completed',
+      revert: 'Undo Retouch',
+      copy: 'AI Write Copy',
+      copyDone: 'AI recognized the image and generated bilingual copy',
+      copyLocal: 'Local engine generated copy from image features',
+      video: 'Generate Video',
+      videoTitle: 'AI Product Short Video',
+      videoGen: 'Generate',
+      videoDone: 'Short video generated',
+      videoDownload: 'Download Video',
+      videoUnsupported: 'Video synthesis is not supported in this browser; please use Chrome / Edge',
+      videoTip: 'AI composes a product short video: branded background + Ken Burns image showcase + title & price captions, downloadable (webm)',
+      videoDuration: 'Duration',
+      videoNoImage: 'Please upload a product image first',
+      seconds: 's',
+    },
     cats: {
       hardware: 'Hardware/Building Materials',
       appliance: 'Home Appliances',
@@ -1425,6 +1486,26 @@ const ar: PortalMessages = {
     cancel: 'إلغاء',
     delConfirm: 'حذف هذا المنتج؟',
     resetConfirm: 'استعادة جميع المنتجات الافتراضية؟',
+    ai: {
+      uploadTip: 'انقر أو اسحب صورة إلى هنا (JPG / PNG، ضغط تلقائي)',
+      notImage: 'يرجى اختيار ملف صورة',
+      retouch: 'تحسين تلقائي',
+      retouchDone: 'تم التحسين التلقائي',
+      revert: 'تراجع عن التحسين',
+      copy: 'كتابة بواسطة الذكاء الاصطناعي',
+      copyDone: 'تعرف الذكاء الاصطناعي على الصورة وكتب نصًا بلغتين',
+      copyLocal: 'أنشأ المحرك المحلي النص من ملامح الصورة',
+      video: 'إنشاء فيديو',
+      videoTitle: 'فيديو منتج بالذكاء الاصطناعي',
+      videoGen: 'إنشاء',
+      videoDone: 'تم إنشاء الفيديو القصير',
+      videoDownload: 'تنزيل الفيديو',
+      videoUnsupported: 'متصفحك لا يدعم إنشاء الفيديو، يرجى استخدام Chrome / Edge',
+      videoTip: 'يولد الذكاء الاصطناعي فيديو منتج قصير: خلفية العلامة التجارية + عرض ديناميكي للصورة + عناوين، قابل للتنزيل (webm)',
+      videoDuration: 'مدة الفيديو',
+      videoNoImage: 'يرجى تحميل صورة المنتج أولاً',
+      seconds: 'ثانية',
+    },
     cats: {
       hardware: 'أدوات/مواد بناء',
       appliance: 'أجهزة منزلية',
@@ -1787,6 +1868,26 @@ const vi: PortalMessages = {
     cancel: 'Hủy',
     delConfirm: 'Xóa sản phẩm này?',
     resetConfirm: 'Khôi phục tất cả sản phẩm mặc định?',
+    ai: {
+      uploadTip: 'Nhấp hoặc kéo ảnh vào đây (JPG / PNG, tự động nén)',
+      notImage: 'Vui lòng chọn tệp hình ảnh',
+      retouch: 'Tự động chỉnh sửa',
+      retouchDone: 'Đã chỉnh sửa tự động',
+      revert: 'Hoàn tác chỉnh sửa',
+      copy: 'AI viết nội dung',
+      copyDone: 'AI đã nhận diện ảnh và viết nội dung song ngữ',
+      copyLocal: 'Bộ máy cục bộ đã tạo nội dung theo đặc điểm ảnh',
+      video: 'Tạo video',
+      videoTitle: 'Video sản phẩm bằng AI',
+      videoGen: 'Tạo',
+      videoDone: 'Đã tạo video ngắn',
+      videoDownload: 'Tải video',
+      videoUnsupported: 'Trình duyệt không hỗ trợ dựng video, vui lòng dùng Chrome / Edge',
+      videoTip: 'AI tổng hợp video sản phẩm ngắn: nền thương hiệu + hình ảnh động Ken Burns + phụ đề tên & giá, tải xuống được (webm)',
+      videoDuration: 'Thời lượng',
+      videoNoImage: 'Vui lòng tải ảnh sản phẩm trước',
+      seconds: 'giây',
+    },
     cats: {
       hardware: 'Kim khí/Vật liệu xây dựng',
       appliance: 'Thiết bị gia dụng',
@@ -2149,6 +2250,26 @@ const th: PortalMessages = {
     cancel: 'ยกเลิก',
     delConfirm: 'ลบสินค้านี้?',
     resetConfirm: 'คืนค่าสินค้าเริ่มต้นทั้งหมด?',
+    ai: {
+      uploadTip: 'คลิกหรือลากรูปมาที่นี่ (JPG / PNG บีบอัดอัตโนมัติ)',
+      notImage: 'กรุณาเลือกไฟล์รูปภาพ',
+      retouch: 'ตกแต่งอัตโนมัติ',
+      retouchDone: 'ตกแต่งอัตโนมัติเรียบร้อย',
+      revert: 'ย้อนการตกแต่ง',
+      copy: 'AI เขียนคำโฆษณา',
+      copyDone: 'AI จำแนกรูปและเขียนคำโฆษณาสองภาษาแล้ว',
+      copyLocal: 'เอนจินในเครื่องสร้างคำโฆษณาจากลักษณะรูปภาพ',
+      video: 'สร้างวิดีโอ',
+      videoTitle: 'วิดีโอสินค้าด้วย AI',
+      videoGen: 'สร้าง',
+      videoDone: 'สร้างวิดีโอสั้นเรียบร้อย',
+      videoDownload: 'ดาวน์โหลดวิดีโอ',
+      videoUnsupported: 'เบราว์เซอร์ไม่รองรับการสร้างวิดีโอ กรุณาใช้ Chrome / Edge',
+      videoTip: 'AI สร้างวิดีโอสินค้าสั้น: พื้นหลังแบรนด์ + ภาพเคลื่อนไหว Ken Burns + คำบรรยายชื่อและราคา ดาวน์โหลดได้ (webm)',
+      videoDuration: 'ความยาววิดีโอ',
+      videoNoImage: 'กรุณาอัปโหลดรูปสินค้าก่อน',
+      seconds: 'วินาที',
+    },
     cats: {
       hardware: 'เครื่องมือ/วัสดุก่อสร้าง',
       appliance: 'เครื่องใช้ไฟฟ้าในบ้าน',
@@ -2511,6 +2632,26 @@ const id: PortalMessages = {
     cancel: 'Batal',
     delConfirm: 'Hapus produk ini?',
     resetConfirm: 'Pulihkan semua produk bawaan?',
+    ai: {
+      uploadTip: 'Klik atau seret gambar ke sini (JPG / PNG, terkompresi otomatis)',
+      notImage: 'Silakan pilih file gambar',
+      retouch: 'Retouch Otomatis',
+      retouchDone: 'Retouch otomatis selesai',
+      revert: 'Batalkan Retouch',
+      copy: 'AI Tulis Copywriting',
+      copyDone: 'AI mengenali gambar dan menulis copywriting dua bahasa',
+      copyLocal: 'Mesin lokal membuat copywriting dari fitur gambar',
+      video: 'Buat Video',
+      videoTitle: 'Video Produk AI',
+      videoGen: 'Buat',
+      videoDone: 'Video singkat berhasil dibuat',
+      videoDownload: 'Unduh Video',
+      videoUnsupported: 'Browser tidak mendukung pembuatan video, gunakan Chrome / Edge',
+      videoTip: 'AI menyusun video produk singkat: latar merek + tampilan gambar Ken Burns + judul & harga, dapat diunduh (webm)',
+      videoDuration: 'Durasi',
+      videoNoImage: 'Silakan unggah gambar produk terlebih dahulu',
+      seconds: 'detik',
+    },
     cats: {
       hardware: 'Perangkat Keras/Bahan Bangunan',
       appliance: 'Elektronik Rumah Tangga',
@@ -2873,6 +3014,26 @@ const ms: PortalMessages = {
     cancel: 'Batal',
     delConfirm: 'Padam produk ini?',
     resetConfirm: 'Pulihkan semua produk lalai?',
+    ai: {
+      uploadTip: 'Klik atau seret imej ke sini (JPG / PNG, dimampatkan automatik)',
+      notImage: 'Sila pilih fail imej',
+      retouch: 'Retouch Automatik',
+      retouchDone: 'Retouch automatik selesai',
+      revert: 'Buat Asal Retouch',
+      copy: 'AI Tulis Copy',
+      copyDone: 'AI mengenal pasti imej dan menulis copy dwibahasa',
+      copyLocal: 'Enjin tempatan menghasilkan copy daripada ciri imej',
+      video: 'Jana Video',
+      videoTitle: 'Video Produk AI',
+      videoGen: 'Jana',
+      videoDone: 'Video pendek berjaya dijana',
+      videoDownload: 'Muat Turun Video',
+      videoUnsupported: 'Pelayar tidak menyokong penjanaan video, sila guna Chrome / Edge',
+      videoTip: 'AI menggabungkan video pendek produk: latar jenama + paparan imej Ken Burns + sari kata nama & harga, boleh dimuat turun (webm)',
+      videoDuration: 'Tempoh Video',
+      videoNoImage: 'Sila muat naik imej produk dahulu',
+      seconds: 'saat',
+    },
     cats: {
       hardware: 'Perkakasan/Bahan Binaan',
       appliance: 'Elektrik Rumah',
@@ -3235,6 +3396,26 @@ const fil: PortalMessages = {
     cancel: 'Kanselahin',
     delConfirm: 'Tanggalin ang produktong ito?',
     resetConfirm: 'Ibalik ang lahat ng default na produkto?',
+    ai: {
+      uploadTip: 'I-click o i-drag ang image dito (JPG / PNG, auto-compress)',
+      notImage: 'Pumili ng image file',
+      retouch: 'Auto Retouch',
+      retouchDone: 'Tapos na ang auto retouch',
+      revert: 'I-undo ang Retouch',
+      copy: 'AI Sumulat ng Copy',
+      copyDone: 'Nakilala ng AI ang image at sumulat ng bilingual copy',
+      copyLocal: 'Nagawa ng local engine ang copy mula sa mga katangian ng image',
+      video: 'Gumawa ng Video',
+      videoTitle: 'AI Product Video',
+      videoGen: 'Gumawa',
+      videoDone: 'Tapos na ang maikling video',
+      videoDownload: 'I-download ang Video',
+      videoUnsupported: 'Hindi suportado ng browser ang video synthesis, gumamit ng Chrome / Edge',
+      videoTip: 'Bubuo ang AI ng maikling product video: branded background + Ken Burns na image showcase + title at price captions, mada-download (webm)',
+      videoDuration: 'Haba ng Video',
+      videoNoImage: 'Mag-upload muna ng product image',
+      seconds: 'segundo',
+    },
     cats: {
       hardware: 'Hardware/Building Materials',
       appliance: 'Home Appliances',
