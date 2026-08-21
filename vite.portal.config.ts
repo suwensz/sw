@@ -56,7 +56,7 @@ export default defineConfig({
     // AI 服务本地转发代理（同 vite.config.ts，规避 CORS）
     proxy: {
       '/api/llm': {
-        target: 'http://127.0.0.1:8899',
+        target: 'http://127.0.0.1:8898',
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api\/llm$/, '/llm'),
         configure: (proxy) => {

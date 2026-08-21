@@ -4,7 +4,7 @@
 //   2. 未配置或调用失败 → 回退本地知识库回答引擎（services/knowledge）
 // 请求链路（解决浏览器 CORS 限制）：
 //   代理优先 → 直连兜底 → 本地知识库
-//   - 代理：POST /api/llm（由 scripts/llm-proxy.cjs 提供，Vite dev 代理自动转发到 127.0.0.1:8899，
+//   - 代理：POST /api/llm（由 scripts/llm-proxy.cjs 提供，Vite dev 代理自动转发到 127.0.0.1:8898，
 //     Electron 桌面端启动时自动拉起；生产 Web 部署请自行把 /api/llm 反代到 llm-proxy 或服务端代理）
 //   - 直连：DeepSeek 官方支持浏览器跨域；豆包/扣子通常被浏览器拦截，此时依赖代理
 //   - 密钥仅保存在浏览器 localStorage，供演示/内网部署使用。

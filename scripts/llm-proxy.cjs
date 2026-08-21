@@ -6,8 +6,8 @@
  * 均不允许跨域直连 —— 本代理把浏览器请求转发到目标服务商，绕开 CORS。
  *
  * 用法：
- *   node scripts/llm-proxy.cjs            # 默认端口 8899
- *   PORT=8899 node scripts/llm-proxy.cjs  # 自定义端口
+ *   node scripts/llm-proxy.cjs            # 默认端口 8898
+ *   PORT=8898 node scripts/llm-proxy.cjs  # 自定义端口
  *
  * 协议：
  *   POST /llm
@@ -20,7 +20,7 @@ const http = require('http')
 const https = require('https')
 
 const HOST = process.env.HOST || '127.0.0.1'
-const PORT = Number(process.env.PORT) || 8899
+const PORT = Number(process.env.PORT) || 8898
 
 /** 读取请求体 */
 function readBody(req) {
