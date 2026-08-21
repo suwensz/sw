@@ -41,8 +41,10 @@ export function matchWakeWord(text: string): boolean {
 
 /** 从识别文本中提取指令：去除「素衡素衡」及标点填充 */
 export function extractCommand(text: string): string {
-  let s = text.replace(/素衡素衡/g, '').replace(/素衡/g, '')
-  s = s.replace(/[\s,，.。!！?？、;；:：'"'“”‘’·—\-]/g, '')
+  // 先去除空白再做唤醒词剔除，兼容识别器输出「素 衡 素 衡」这类带空格的容错文本
+  let s = text.replace(/\s+/g, '')
+  s = s.replace(/素衡素衡/g, '').replace(/素衡/g, '')
+  s = s.replace(/[,，.。!！?？、;；:：'"'“”‘’·—\-]/g, '')
   return s.trim()
 }
 
