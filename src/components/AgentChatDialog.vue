@@ -6,7 +6,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { askAI, LLM_PROVIDERS, testLLMConnection, type LlmProbeCode } from '@/services/llm'
+import { askAI, enhanceQuestion, LLM_PROVIDERS, testLLMConnection, type LlmProbeCode } from '@/services/llm'
 import { useLlmConfigStore } from '@/stores/llmConfig'
 import type { Domain } from '@/services/knowledge'
 
@@ -147,6 +147,56 @@ async function testConnection() {
   }
 }
 
+/* ---------------- AI 智能对话（输入框「AI智能」按钮，DeepSeek 免费版） ---------------- */
+const enhancing = ref(false)
+
+/** 本地轻量优化兜底：为口语化提问补充领域限定词 */
+function localEnhance(q: string): string {
+  const hints: Record<DialogDomain, string> = {
+    tcm: '（请结合中医健康大数据，从专业角度分析）',
+    ecom: '（请结合跨境采购与供应链数据，给出专业建议）',
+    domestic: '（请结合淘宝/拼多多/京东平台数据，给出专业建议）',
+  }
+  return `${q}${hints[currentDomain.value]}`
+}
+
+/** 打开 DeepSeek 免费版快速接入面板（预选 deepseek 服务商） */
+function openDeepseekSetup() {
+  if (llmStore.data.provider !== 'deepseek') llmStore.setProvider('deepseek')
+  showConfig.value = true
+}
+
+async function onAiSmartClick() {
+  // 正在优化/发送中不响应
+  if (enhancing.value || loading.value) return
+  const q = input.value.trim()
+  // 未输入内容：一键打开 DeepSeek 免费版接入面板
+  if (!q) {
+    openDeepseekSetup()
+    ElMessage.info(t('portal.agentsCenter.aiSmartNeedKey'))
+    return
+  }
+  // 未配置云端 AI：引导接入 DeepSeek 免费版
+  if (!llmStore.configured) {
+    openDeepseekSetup()
+    ElMessage.warning(t('portal.agentsCenter.aiSmartNeedKey'))
+    return
+  }
+  enhancing.value = true
+  try {
+    const r = await enhanceQuestion(currentDomain.value, q)
+    if (r?.text) {
+      input.value = r.text
+      ElMessage.success(t('portal.agentsCenter.aiEnhanceDone'))
+    } else {
+      input.value = localEnhance(q)
+      ElMessage.success(t('portal.agentsCenter.aiEnhanceLocal'))
+    }
+  } finally {
+    enhancing.value = false
+  }
+}
+
 async function send(text?: string) {
   const q = (text ?? input.value).trim()
   if (!q || loading.value) return
@@ -278,13 +328,23 @@ function onVoiceClick() {
           </el-select>
         </el-form-item>
         <el-form-item :label="t('portal.agentsCenter.llmApiKey')">
-          <el-input
-            :model-value="llmStore.data.apiKey"
-            type="password"
-            show-password
-            :placeholder="t('portal.agentsCenter.llmApiKeyPlaceholder')"
-            @update:model-value="(v: string) => llmStore.setApiKey(v)"
-          />
+          <div class="ac-key-row">
+            <el-input
+              :model-value="llmStore.data.apiKey"
+              type="password"
+              show-password
+              :placeholder="t('portal.agentsCenter.llmApiKeyPlaceholder')"
+              @update:model-value="(v: string) => llmStore.setApiKey(v)"
+            />
+            <el-link
+              class="ac-key-apply"
+              type="primary"
+              :href="llmStore.providerMeta.docUrl"
+              target="_blank"
+            >
+              {{ t('portal.agentsCenter.llmApplyKey') }}
+            </el-link>
+          </div>
         </el-form-item>
         <el-form-item :label="t('portal.agentsCenter.llmEndpoint')">
           <el-input
@@ -382,6 +442,13 @@ function onVoiceClick() {
           clearable
           @keyup.enter="send()"
         />
+        <!-- AI 智能对话：优化提问 / 一键接入 DeepSeek 免费版 -->
+        <el-tooltip :content="t('portal.agentsCenter.aiSmartTip')" placement="top">
+          <el-button class="ac-ai-btn" :loading="enhancing" @click="onAiSmartClick">
+            <el-icon v-if="!enhancing" :size="15"><MagicStick /></el-icon>
+            {{ t('portal.agentsCenter.aiSmart') }}
+          </el-button>
+        </el-tooltip>
         <el-button type="primary" :loading="loading" @click="send()">
           {{ t('portal.agentsCenter.chatSend') }}
         </el-button>
@@ -596,6 +663,31 @@ function onVoiceClick() {
 }
 .ac-mic.is-listening {
   animation: ac-pulse 1.1s ease-in-out infinite;
+}
+/* AI 智能按钮：发送前的紫金渐变主视觉 */
+.ac-ai-btn {
+  flex: none;
+  background: linear-gradient(135deg, #6f5bd8, #8a5fbf);
+  border: none;
+  color: #ffffff;
+  font-weight: 600;
+}
+.ac-ai-btn:hover,
+.ac-ai-btn:focus {
+  background: linear-gradient(135deg, #7d6ae2, #9670cf);
+  color: #ffffff;
+  filter: brightness(1.06);
+}
+/* API Key 行：输入框 + 申请链接 */
+.ac-key-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.ac-key-apply {
+  flex: none;
+  font-size: 12px;
 }
 @keyframes ac-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(224, 82, 63, 0.45); }

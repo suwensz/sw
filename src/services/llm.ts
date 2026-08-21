@@ -315,6 +315,51 @@ export async function testLLMConnection(): Promise<LlmProbeResult> {
   }
 }
 
+/**
+ * AI 智能优化提问（输入框「AI智能」按钮）：
+ * 将口语化提问改写为更专业、信息更完整的提问，供用户确认后发送。
+ * 未配置云端或调用失败 → 返回 null（由上层本地兜底或引导接入）。
+ */
+export async function enhanceQuestion(
+  domain: Domain,
+  question: string,
+): Promise<{ text: string; source: 'llm' | 'local' } | null> {
+  const cfg = useLlmConfigStore()
+  if (!cfg.configured || !cfg.data.endpoint) return null
+
+  const sys =
+    '你是素衡OS的提问优化助手。请把用户输入的口语化问题改写为一条更专业、清晰、信息完整的提问：保持原意、补充必要的限定词（如对象、范围、场景），控制在两句话以内。直接输出改写后的提问本身，不要任何解释、引号或前后缀。'
+  const domainHint: Record<Domain, string> = {
+    tcm: '问题领域：中医健康。',
+    ecom: '问题领域：跨境电商与供应链。',
+    domestic: '问题领域：国内电商（淘宝/拼多多/京东）。',
+    general: '',
+  }
+
+  try {
+    if (cfg.data.provider === 'coze') {
+      const answer = await callCoze(
+        cfg.data.endpoint,
+        cfg.data.apiKey,
+        cfg.data.botId || '',
+        `${sys}${domainHint[domain]}\n用户原始问题：${question}`,
+      )
+      const text = answer?.trim()
+      if (text) return { text, source: 'llm' }
+      return null
+    }
+    const answer = await callOpenAICompatible(cfg.data.endpoint, cfg.data.apiKey, cfg.data.model, [
+      { role: 'system', content: `${sys}${domainHint[domain]}` },
+      { role: 'user', content: question },
+    ])
+    const text = answer?.trim()
+    if (text) return { text, source: 'llm' }
+    return null
+  } catch {
+    return null
+  }
+}
+
 /** 统一 AI 问答入口：云端优先，本地知识库兜底 */
 export async function askAI(
   domain: Domain,
