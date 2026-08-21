@@ -60,6 +60,7 @@ function runTest() {
 const chipState = computed<'listening' | 'paused' | 'off' | 'error' | 'noEngine'>(() => {
   if (!supported) return 'noEngine'
   if (!enabled.value) return 'off'
+  if (micPerm.value === 'denied') return 'error'
   if (wakeDebug.paused) return 'paused'
   if (wakeDebug.lastError && wakeDebug.errCount >= 3 && !wakeDebug.listening) return 'error'
   return 'listening'
@@ -132,7 +133,7 @@ onUnmounted(() => {
         </div>
       </template>
 
-      <div class="va-panel">
+      <div class="va-panel" @click.stop>
         <div class="va-panel-title">{{ t('wakeDebug.title') }}</div>
 
         <div class="va-row">
@@ -178,10 +179,10 @@ onUnmounted(() => {
         </div>
 
         <div class="va-actions">
-          <el-button size="small" :type="enabled ? 'default' : 'primary'" @click="toggle()">
+          <el-button size="small" :type="enabled ? 'default' : 'primary'" @click.stop="toggle()">
             {{ enabled ? t('wakeDebug.disable') : t('wakeDebug.enable') }}
           </el-button>
-          <el-button size="small" type="primary" plain @click="dispatchFullWake()">
+          <el-button size="small" type="primary" plain @click.stop="dispatchFullWake()">
             {{ t('wakeDebug.manualWake') }}
           </el-button>
         </div>

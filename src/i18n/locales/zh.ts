@@ -57,6 +57,7 @@ export default {
     thinking: '正在思考…',
     unsupported: '当前环境不支持语音识别，无法使用唤醒功能',
     micDenied: '麦克风权限被拒绝，无法使用唤醒功能',
+    micDeniedGuide: '麦克风权限被浏览器拒绝。恢复方法：点击地址栏左侧 🔒/🚫 图标 → 站点设置 → 麦克风 → 允许，然后刷新本页。',
     networkError: '语音识别服务连接失败（网络受限或无法访问识别服务），将持续自动重试',
     audioError: '未检测到可用的麦克风设备，请检查麦克风连接',
     receiveTitle: '唤醒指令已接收',

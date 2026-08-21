@@ -10,7 +10,9 @@ import { i18n } from '@/i18n'
 import { ElMessage } from 'element-plus'
 import { speakBroadcast } from '@/composables/useSpeech'
 
-const STORAGE_KEY = 'qh_wake_enabled'
+// 注意：旧 key 'qh_wake_enabled' 曾因 not-allowed 错误被污染为 '0'，
+// 导致麦克风权限一次被拒后唤醒被永久关闭。现使用新 key 重置所有用户为默认开启。
+const STORAGE_KEY = 'qh_wake_enabled_v2'
 export const WAKE_EVENT = 'suheng:wake'
 /** 指令聆听最长等待（毫秒） */
 const COMMAND_WINDOW = 15000
@@ -80,6 +82,9 @@ let _resumeTimer: number | null = null
 // 连续错误计数：用于重启退避（识别服务不可达时避免 1 秒疯狂重连）
 let _errStreak = 0
 let _lastErrNotifyAt = 0
+// 麦克风权限状态缓存（Permissions API）
+let _micPermState: PermissionState | 'unknown' = 'unknown'
+let _permStatus: PermissionStatus | null = null
 
 // 指令聆听状态
 let _mode: 'idle' | 'command' = 'idle'
@@ -181,6 +186,7 @@ function exitCommand() {
 function submitCommand() {
   clearCommandTimers()
   _mode = 'idle'
+  _commandBuf = ''
   commandState.value = 'idle'
   const handler = _commandHandler
   const cmd = _commandBuf
@@ -221,6 +227,27 @@ function onCommandCandidate(cmd: string, isFinal: boolean) {
   _debounceTimer = window.setTimeout(submitCommand, COMMAND_DEBOUNCE)
 }
 
+function showMicDeniedGuide() {
+  const now = Date.now()
+  if (now - _lastErrNotifyAt > 60000) {
+    _lastErrNotifyAt = now
+    ElMessage.error(tr('wake.micDeniedGuide'))
+  }
+}
+
+function showEnvError(err: string) {
+  const now = Date.now()
+  _errStreak++
+  if (now - _lastErrNotifyAt > 60000) {
+    _lastErrNotifyAt = now
+    if (err === 'network') {
+      ElMessage.warning(tr('wake.networkError'))
+    } else if (err === 'audio-capture') {
+      ElMessage.warning(tr('wake.audioError'))
+    }
+  }
+}
+
 function ensureRecognition() {
   if (_recog) return _recog
   const SR = getSpeechRecognition()
@@ -250,50 +277,45 @@ function ensureRecognition() {
     wakeDebug.lastError = String(err || 'unknown')
     wakeDebug.errCount = ++_errStreak
     if (err === 'not-allowed' || err === 'service-not-allowed') {
-      if (_enabled) _enabled.value = false
-      localStorage.setItem(STORAGE_KEY, '0')
-      ElMessage.error(tr('wake.micDenied'))
+      // 关键修复：不再把一次权限错误永久写入 localStorage。
+      // 用户只要在浏览器地址栏 → 站点设置 → 麦克风改为「允许」后刷新即可恢复。
+      showMicDeniedGuide()
+      stopInternal()
       return
     }
     // network / audio-capture 等环境错误：给出明确反馈（60 秒内只提示一次，避免刷屏）
-    _errStreak++
-    const now = Date.now()
-    if (now - _lastErrNotifyAt > 60000) {
-      _lastErrNotifyAt = now
-      if (err === 'network') {
-        ElMessage.warning(tr('wake.networkError'))
-      } else if (err === 'audio-capture') {
-        ElMessage.warning(tr('wake.audioError'))
-      }
-    }
+    showEnvError(err)
   }
   r.onend = () => {
     if (_listening) _listening.value = false
     wakeDebug.listening = false
     // 暂停期间（TTS 播报中）不重启，由 resumeRecognition 恢复
     if (_paused) return
-    // 仍处于开启状态则自动恢复监听；连续失败时退避（1s → 5s）
-    if (_enabled?.value) {
-      if (_restartTimer) window.clearTimeout(_restartTimer)
-      const delay = _errStreak >= 5 ? 5000 : 1000
-      _restartTimer = window.setTimeout(safeStart, delay)
-    }
+    // 仍处于开启状态则自动恢复监听；权限被拒绝时不再疯狂重试
+    if (!_enabled?.value || _micPermState === 'denied') return
+    if (_restartTimer) window.clearTimeout(_restartTimer)
+    const delay = _errStreak >= 5 ? 5000 : 1000
+    _restartTimer = window.setTimeout(safeStart, delay)
   }
   _recog = r
   return r
 }
 
-function start() {
+/** 启动监听（会持久化开启状态） */
+export function startListening() {
   if (!_supported) {
-    if (_enabled) _enabled.value = false
     ElMessage.warning(tr('wake.unsupported'))
     return
   }
+  if (!_enabled) return
+  _enabled.value = true
+  localStorage.setItem(STORAGE_KEY, '1')
   ensureRecognition()
   safeStart()
 }
 
-function stop() {
+/** 内部停止：不清除开关状态，仅停止识别与重试 */
+function stopInternal() {
   if (_restartTimer) {
     window.clearTimeout(_restartTimer)
     _restartTimer = null
@@ -308,17 +330,44 @@ function stop() {
   wakeDebug.listening = false
 }
 
+/** 关闭监听（会持久化关闭状态） */
+export function stopListening() {
+  if (!_enabled) return
+  _enabled.value = false
+  localStorage.setItem(STORAGE_KEY, '0')
+  stopInternal()
+}
+
 function toggle() {
   if (!_enabled) return
-  _enabled.value = !_enabled.value
-  localStorage.setItem(STORAGE_KEY, _enabled.value ? '1' : '0')
-  if (_enabled.value) {
-    start()
-    ElMessage.success(tr('wake.enabled'))
-  } else {
-    stop()
-    ElMessage.info(tr('wake.disabled'))
+  if (_enabled.value) stopListening()
+  else startListening()
+}
+
+async function checkMicPermission(): Promise<PermissionState | 'unknown'> {
+  try {
+    const perm = await (navigator as any).permissions?.query?.({ name: 'microphone' })
+    if (perm) {
+      _micPermState = perm.state
+      _permStatus = perm
+      perm.onchange = () => {
+        _micPermState = perm.state
+        wakeDebug.lastError = ''
+        wakeDebug.errCount = 0
+        _errStreak = 0
+        if (perm.state === 'granted' && _enabled?.value) {
+          startListening()
+        } else if (perm.state === 'denied') {
+          stopInternal()
+          showMicDeniedGuide()
+        }
+      }
+      return perm.state
+    }
+  } catch {
+    // 部分浏览器/环境不支持 Permissions API，回退到直接 start()
   }
+  return 'unknown'
 }
 
 /**
@@ -341,14 +390,22 @@ export function useWakeWord() {
   if (_enabled === null) {
     _supported = !!getSpeechRecognition()
     wakeDebug.engineOk = !!_supported
-    // 整个系统默认采用「素衡素衡」语音唤醒（用户显式关闭后记忆关闭状态）
+    // 新 key：默认开启。若用户显式关闭过新 key，则保持关闭。
     _enabled = ref(localStorage.getItem(STORAGE_KEY) !== '0')
     _listening = ref(false)
 
-    // 应用启动时恢复上次的开启状态：延迟到首帧后启动，避免阻塞首屏
+    // 应用启动时恢复上次的开启状态：先查询麦克风权限，避免权限被拒后疯狂报错/重试
     if (_enabled.value && _supported && !_autoStartDone) {
       _autoStartDone = true
-      window.setTimeout(() => start(), 1500)
+      window.setTimeout(async () => {
+        const state = await checkMicPermission()
+        if (state === 'denied') {
+          // 权限已被浏览器拒绝：保持开启状态，给出明确恢复指引
+          showMicDeniedGuide()
+        } else {
+          startListening()
+        }
+      }, 1200)
     }
   }
   return {

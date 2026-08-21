@@ -57,6 +57,7 @@ export default {
     thinking: 'Thinking...',
     unsupported: 'Speech recognition is not supported in this environment',
     micDenied: 'Microphone permission denied',
+    micDeniedGuide: 'Microphone access was blocked by the browser. To restore it, click the 🔒/🚫 icon in the address bar → Site settings → Microphone → Allow, then refresh this page.',
     networkError: 'Speech recognition service unreachable (network restricted). Will keep retrying automatically.',
     audioError: 'No microphone device detected. Please check your microphone.',
     receiveTitle: 'Wake command received',
