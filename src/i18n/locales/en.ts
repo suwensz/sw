@@ -57,6 +57,8 @@ export default {
     thinking: 'Thinking...',
     unsupported: 'Speech recognition is not supported in this environment',
     micDenied: 'Microphone permission denied',
+    networkError: 'Speech recognition service unreachable (network restricted). Will keep retrying automatically.',
+    audioError: 'No microphone device detected. Please check your microphone.',
     receiveTitle: 'Wake command received',
     receiveSub: 'Suheng Suheng · waking up all content and agents',
     allOnlineTitle: 'SuhengOS Fully Awake',

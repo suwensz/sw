@@ -33,17 +33,29 @@ function getSpeechRecognition(): (new () => AnySpeechRecognition) | null {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null
 }
 
-/** 归一化文本后匹配唤醒词「素衡素衡」（容错空格与标点） */
+/**
+ * 同音字容错：浏览器语音识别引擎对「素衡」这类非常规词，
+ * 极易输出同音/近音字（肃恒、苏恒、宿恒…）。
+ * 用字符类别做拼音级模糊匹配（sù-héng sù-héng）。
+ */
+const SU = '素肃宿酥苏塑愫速溯'
+const HENG = '衡恒横珩姮桁'
+const WAKE_FUZZY = new RegExp(`[${SU}].{0,2}[${HENG}].{0,3}[${SU}].{0,2}[${HENG}]`)
+
+/** 归一化文本后匹配唤醒词「素衡素衡」（容错空格、标点与同音字） */
 export function matchWakeWord(text: string): boolean {
   const normalized = text.replace(/[\s,，.。!！?？、;；:：'"']/g, '')
-  return normalized.includes('素衡素衡') || /素.{0,2}衡.{0,3}素.{0,2}衡/.test(normalized)
+  return normalized.includes('素衡素衡') || WAKE_FUZZY.test(normalized)
 }
 
-/** 从识别文本中提取指令：去除「素衡素衡」及标点填充 */
+/** 从识别文本中提取指令：去除「素衡素衡」（含同音字变体）及标点填充 */
 export function extractCommand(text: string): string {
   // 先去除空白再做唤醒词剔除，兼容识别器输出「素 衡 素 衡」这类带空格的容错文本
   let s = text.replace(/\s+/g, '')
+  s = s.replace(new RegExp(WAKE_FUZZY.source, 'g'), '')
   s = s.replace(/素衡素衡/g, '').replace(/素衡/g, '')
+  // 清理残留的单个同音字组合（如「肃恒」）
+  s = s.replace(new RegExp(`[${SU}][${HENG}]`, 'g'), '')
   s = s.replace(/[,，.。!！?？、;；:：'"'“”‘’·—\-]/g, '')
   return s.trim()
 }
@@ -61,6 +73,13 @@ let _recog: AnySpeechRecognition | null = null
 let _lastWakeAt = 0
 let _restartTimer: number | null = null
 let _autoStartDone = false
+// TTS 播报期间暂停识别，避免麦克风把系统自己的播报（问候语/AI 回答）
+// 误听为唤醒词或指令（自听回环）
+let _paused = false
+let _resumeTimer: number | null = null
+// 连续错误计数：用于重启退避（识别服务不可达时避免 1 秒疯狂重连）
+let _errStreak = 0
+let _lastErrNotifyAt = 0
 
 // 指令聆听状态
 let _mode: 'idle' | 'command' = 'idle'
@@ -82,13 +101,40 @@ function tr(key: string): string {
 }
 
 function safeStart() {
-  if (!_enabled?.value || !_supported) return
+  if (!_enabled?.value || !_supported || _paused) return
   try {
     _recog?.start()
     if (_listening) _listening.value = true
   } catch {
     // already started - ignore
   }
+}
+
+/**
+ * 暂停识别（TTS 播报期间防自听回环）。
+ * onEnd 兜底：语音合成偶发不触发 onend 时，按文本时长上限自动恢复。
+ */
+export function pauseRecognition(maxMs = 12000): void {
+  _paused = true
+  if (_resumeTimer) window.clearTimeout(_resumeTimer)
+  _resumeTimer = window.setTimeout(resumeRecognition, maxMs)
+  try {
+    _recog?.stop()
+  } catch {
+    // ignore
+  }
+  if (_listening) _listening.value = false
+}
+
+/** 恢复识别（幂等） */
+export function resumeRecognition(): void {
+  if (!_paused) return
+  _paused = false
+  if (_resumeTimer) {
+    window.clearTimeout(_resumeTimer)
+    _resumeTimer = null
+  }
+  if (_enabled?.value) safeStart()
 }
 
 function clearCommandTimers() {
@@ -124,8 +170,10 @@ function triggerWake() {
   const now = Date.now()
   if (now - _lastWakeAt < 6000) return // 6 秒冷却，避免连续触发
   _lastWakeAt = now
+  // 暂停识别，避免麦克风把问候语自己听成指令（自听回环）
+  pauseRecognition(Math.max(8000, tr('wake.greeting').length * 400))
   // 优雅女声应答：主人您好，您的素衡一直陪伴着您，有什么需要？请告诉我
-  speakBroadcast(tr('wake.greeting'))
+  speakBroadcast(tr('wake.greeting'), { onEnd: resumeRecognition })
   // 广播全局唤醒事件：AgentWakeOverlay 弹层接管全系统唤醒展示
   window.dispatchEvent(new CustomEvent(WAKE_EVENT))
   // 进入指令聆听模式（若有处理器）
@@ -159,6 +207,7 @@ function ensureRecognition() {
   r.interimResults = true
   r.lang = 'zh-CN'
   r.onresult = (e: any) => {
+    _errStreak = 0 // 收到识别结果说明链路健康
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const seg = e.results[i]
       const text: string = seg?.[0]?.transcript || ''
@@ -172,18 +221,34 @@ function ensureRecognition() {
     }
   }
   r.onerror = (e: any) => {
-    if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+    const err = e?.error
+    if (err === 'not-allowed' || err === 'service-not-allowed') {
       if (_enabled) _enabled.value = false
       localStorage.setItem(STORAGE_KEY, '0')
       ElMessage.error(tr('wake.micDenied'))
+      return
+    }
+    // network / audio-capture 等环境错误：给出明确反馈（60 秒内只提示一次，避免刷屏）
+    _errStreak++
+    const now = Date.now()
+    if (now - _lastErrNotifyAt > 60000) {
+      _lastErrNotifyAt = now
+      if (err === 'network') {
+        ElMessage.warning(tr('wake.networkError'))
+      } else if (err === 'audio-capture') {
+        ElMessage.warning(tr('wake.audioError'))
+      }
     }
   }
   r.onend = () => {
     if (_listening) _listening.value = false
-    // 仍处于开启状态则自动恢复监听
+    // 暂停期间（TTS 播报中）不重启，由 resumeRecognition 恢复
+    if (_paused) return
+    // 仍处于开启状态则自动恢复监听；连续失败时退避（1s → 5s）
     if (_enabled?.value) {
       if (_restartTimer) window.clearTimeout(_restartTimer)
-      _restartTimer = window.setTimeout(safeStart, 1000)
+      const delay = _errStreak >= 5 ? 5000 : 1000
+      _restartTimer = window.setTimeout(safeStart, delay)
     }
   }
   _recog = r

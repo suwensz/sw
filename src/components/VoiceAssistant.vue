@@ -6,7 +6,7 @@
 // 唤醒与问候由 useWakeWord 处理；本组件负责指令收集 + AI 回答 + 播报。
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useWakeWord, setCommandHandler, commandState } from '@/composables/useWakeWord'
+import { useWakeWord, setCommandHandler, commandState, pauseRecognition, resumeRecognition } from '@/composables/useWakeWord'
 import { askAI } from '@/services/llm'
 import { speakBroadcast } from '@/composables/useSpeech'
 
@@ -30,7 +30,9 @@ async function handleCommand(cmd: string) {
     // AI 智能根据本系统内容回答：综合中医数据库、五运六气、中医健康、
     // 国内电商、跨境电商数据库（services/llm 云端优先，知识库兜底）
     const res = await askAI('general', cmd)
-    speakBroadcast(res.answer, { rate: 0.95 })
+    // 播报回答期间暂停识别，避免麦克风把 AI 自己的声音听成新指令/唤醒词
+    pauseRecognition(Math.max(8000, res.answer.length * 400))
+    speakBroadcast(res.answer, { rate: 0.95, onEnd: resumeRecognition })
   } catch {
     /* ignore */
   } finally {
