@@ -5,7 +5,7 @@
 //   3. 进入「指令聆听」模式：捕获随后的语音指令，回调 onCommand 处理
 //      （由 VoiceAssistant 全局组件把指令交给 AI 回答并用语音播报）
 // 模块级单例：任何组件 useWakeWord() 都共享同一份状态
-import { ref, type Ref } from 'vue'
+import { ref, reactive, type Ref } from 'vue'
 import { i18n } from '@/i18n'
 import { ElMessage } from 'element-plus'
 import { speakBroadcast } from '@/composables/useSpeech'
@@ -90,6 +90,24 @@ let _debounceTimer: number | null = null
 /** 指令聆听状态（响应式，供 UI 展示「聆听中」指示） */
 export const commandState = ref<'idle' | 'listening'>('idle')
 
+/** 唤醒诊断信息（响应式，供诊断面板实时展示） */
+export const wakeDebug = reactive({
+  /** 识别引擎是否可用（webkitSpeechRecognition） */
+  engineOk: false,
+  /** 是否正在监听 */
+  listening: false,
+  /** 是否处于 TTS 播报暂停期 */
+  paused: false,
+  /** 最近一次识别到的原始文本 */
+  lastTranscript: '',
+  /** 最近一次识别到唤醒词的时间戳（0 = 本次会话尚未唤醒过） */
+  lastWakeAt: 0,
+  /** 最近一次错误代码（network / not-allowed / audio-capture…） */
+  lastError: '',
+  /** 连续错误次数 */
+  errCount: 0,
+})
+
 /** 取翻译（从 i18n 实例的全局 t，避免 useI18n() 必须 setup 调用） */
 function tr(key: string): string {
   try {
@@ -105,6 +123,7 @@ function safeStart() {
   try {
     _recog?.start()
     if (_listening) _listening.value = true
+    wakeDebug.listening = true
   } catch {
     // already started - ignore
   }
@@ -116,6 +135,7 @@ function safeStart() {
  */
 export function pauseRecognition(maxMs = 12000): void {
   _paused = true
+  wakeDebug.paused = true
   if (_resumeTimer) window.clearTimeout(_resumeTimer)
   _resumeTimer = window.setTimeout(resumeRecognition, maxMs)
   try {
@@ -124,10 +144,12 @@ export function pauseRecognition(maxMs = 12000): void {
     // ignore
   }
   if (_listening) _listening.value = false
+  wakeDebug.listening = false
 }
 
 /** 恢复识别（幂等） */
 export function resumeRecognition(): void {
+  wakeDebug.paused = false
   if (!_paused) return
   _paused = false
   if (_resumeTimer) {
@@ -170,6 +192,7 @@ function triggerWake() {
   const now = Date.now()
   if (now - _lastWakeAt < 6000) return // 6 秒冷却，避免连续触发
   _lastWakeAt = now
+  wakeDebug.lastWakeAt = now
   // 暂停识别，避免麦克风把问候语自己听成指令（自听回环）
   pauseRecognition(Math.max(8000, tr('wake.greeting').length * 400))
   // 优雅女声应答：主人您好，您的素衡一直陪伴着您，有什么需要？请告诉我
@@ -208,9 +231,11 @@ function ensureRecognition() {
   r.lang = 'zh-CN'
   r.onresult = (e: any) => {
     _errStreak = 0 // 收到识别结果说明链路健康
+    wakeDebug.errCount = 0
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const seg = e.results[i]
       const text: string = seg?.[0]?.transcript || ''
+      if (text) wakeDebug.lastTranscript = text
       if (_mode === 'idle') {
         if (matchWakeWord(text)) triggerWake()
       } else {
@@ -222,6 +247,8 @@ function ensureRecognition() {
   }
   r.onerror = (e: any) => {
     const err = e?.error
+    wakeDebug.lastError = String(err || 'unknown')
+    wakeDebug.errCount = ++_errStreak
     if (err === 'not-allowed' || err === 'service-not-allowed') {
       if (_enabled) _enabled.value = false
       localStorage.setItem(STORAGE_KEY, '0')
@@ -242,6 +269,7 @@ function ensureRecognition() {
   }
   r.onend = () => {
     if (_listening) _listening.value = false
+    wakeDebug.listening = false
     // 暂停期间（TTS 播报中）不重启，由 resumeRecognition 恢复
     if (_paused) return
     // 仍处于开启状态则自动恢复监听；连续失败时退避（1s → 5s）
@@ -277,6 +305,7 @@ function stop() {
     // ignore
   }
   if (_listening) _listening.value = false
+  wakeDebug.listening = false
 }
 
 function toggle() {
@@ -311,6 +340,7 @@ export function useWakeWord() {
   // 首次调用时初始化模块级单例
   if (_enabled === null) {
     _supported = !!getSpeechRecognition()
+    wakeDebug.engineOk = !!_supported
     // 整个系统默认采用「素衡素衡」语音唤醒（用户显式关闭后记忆关闭状态）
     _enabled = ref(localStorage.getItem(STORAGE_KEY) !== '0')
     _listening = ref(false)
