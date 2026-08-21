@@ -65,6 +65,7 @@ declare module 'vue' {
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     InquiryAssistant: typeof import('./components/InquiryAssistant.vue')['default']
     LanguageSwitcher: typeof import('./components/LanguageSwitcher.vue')['default']
+    LlmServiceConfig: typeof import('./components/LlmServiceConfig.vue')['default']
     ProductCard: typeof import('./components/ProductCard.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

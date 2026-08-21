@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useAgentsStore, AGENT_LIST } from '@/stores/agents'
+import LlmServiceConfig from '@/components/LlmServiceConfig.vue'
 
 const { t } = useI18n()
 const agents = useAgentsStore()
@@ -83,6 +84,10 @@ function deactivateAll() {
         <el-switch :model-value="agents.isActive(a.id)" size="small" @change="(v: string | number | boolean) => agents.setActive(a.id, !!v)" />
       </div>
     </div>
+
+    <!-- AI 服务配置（全局共享）：管理端可编辑；被开发端锁定时只读 -->
+    <el-divider content-position="left">{{ t('admin.menu.agentConfig') }} · AI</el-divider>
+    <LlmServiceConfig />
   </div>
 </template>
 

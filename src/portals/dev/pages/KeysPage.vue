@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useDevStore } from '@/stores/dev'
 import type { DevKey } from '@/mock/devData'
+import LlmServiceConfig from '@/components/LlmServiceConfig.vue'
 
 const { t } = useI18n()
 const dev = useDevStore()
@@ -58,6 +59,9 @@ async function revoke(key: DevKey) {
       show-icon
       style="margin-bottom: 16px"
     />
+
+    <!-- AI 服务配置（全局共享 · 最高控制权）：开发端可编辑并可锁定，锁定后管理端只读 -->
+    <LlmServiceConfig :lockable="true" />
 
     <el-table :data="dev.keys">
       <el-table-column :label="t('dev.keys.appId')" width="150">

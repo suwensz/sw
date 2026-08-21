@@ -160,9 +160,9 @@ function localEnhance(q: string): string {
   return `${q}${hints[currentDomain.value]}`
 }
 
-/** 打开 DeepSeek 免费版快速接入面板（预选 deepseek 服务商） */
+/** 打开 AI 服务接入面板：运营端只读（由管理端/开发端统一配置），其余门户可编辑 */
 function openDeepseekSetup() {
-  if (llmStore.data.provider !== 'deepseek') llmStore.setProvider('deepseek')
+  if (llmStore.canEdit && llmStore.data.provider !== 'deepseek') llmStore.setProvider('deepseek')
   showConfig.value = true
 }
 
@@ -170,16 +170,16 @@ async function onAiSmartClick() {
   // 正在优化/发送中不响应
   if (enhancing.value || loading.value) return
   const q = input.value.trim()
-  // 未输入内容：一键打开 DeepSeek 免费版接入面板
+  // 未输入内容：一键打开 AI 服务接入面板
   if (!q) {
     openDeepseekSetup()
-    ElMessage.info(t('portal.agentsCenter.aiSmartNeedKey'))
+    ElMessage.info(t(llmStore.canEdit ? 'portal.agentsCenter.aiSmartNeedKey' : 'portal.agentsCenter.llmReadOnlyHint'))
     return
   }
-  // 未配置云端 AI：引导接入 DeepSeek 免费版
+  // 未配置云端 AI：引导接入（运营端只读，提示由管理端/开发端配置）
   if (!llmStore.configured) {
     openDeepseekSetup()
-    ElMessage.warning(t('portal.agentsCenter.aiSmartNeedKey'))
+    ElMessage.warning(t(llmStore.canEdit ? 'portal.agentsCenter.aiSmartNeedKey' : 'portal.agentsCenter.llmReadOnlyHint'))
     return
   }
   enhancing.value = true
@@ -314,10 +314,18 @@ function onVoiceClick() {
       </button>
     </div>
 
-    <!-- AI 服务配置（DeepSeek / 豆包 / 扣子免费版） -->
+    <!-- AI 服务配置（运营端只读继承；由管理端/开发端统一配置） -->
     <div v-if="showConfig" class="ac-config">
-      <div class="ac-config-title">{{ t('portal.agentsCenter.llmConfig') }}</div>
-      <el-form label-position="top" size="small">
+      <div class="ac-config-title">
+        {{ t('portal.agentsCenter.llmConfig') }}
+        <el-tag v-if="!llmStore.canEdit" size="small" type="info" effect="plain" class="ac-config-ro">
+          {{ t('portal.agentsCenter.llmReadOnlyHint') }}
+        </el-tag>
+        <el-tag v-else-if="llmStore.data.locked" size="small" type="danger" effect="plain" class="ac-config-ro">
+          {{ t('portal.agentsCenter.llmLocked') }}
+        </el-tag>
+      </div>
+      <el-form label-position="top" size="small" :disabled="!llmStore.canEdit">
         <el-form-item :label="t('portal.agentsCenter.llmProvider')">
           <el-select
             :model-value="llmStore.data.provider"
@@ -337,6 +345,7 @@ function onVoiceClick() {
               @update:model-value="(v: string) => llmStore.setApiKey(v)"
             />
             <el-link
+              v-if="llmStore.canEdit"
               class="ac-key-apply"
               type="primary"
               :href="llmStore.providerMeta.docUrl"
@@ -366,8 +375,8 @@ function onVoiceClick() {
           />
         </el-form-item>
         <div class="ac-config-actions">
-          <el-button type="primary" @click="onSaveConfig">{{ t('portal.agentsCenter.llmSave') }}</el-button>
-          <el-button plain @click="llmStore.reset">{{ t('portal.agentsCenter.llmReset') }}</el-button>
+          <el-button v-if="llmStore.canEdit" type="primary" @click="onSaveConfig">{{ t('portal.agentsCenter.llmSave') }}</el-button>
+          <el-button v-if="llmStore.canEdit" plain @click="llmStore.reset">{{ t('portal.agentsCenter.llmReset') }}</el-button>
           <el-button
             :loading="testing"
             :type="testResult ? (testResult.code === 'OK' ? 'success' : 'warning') : 'default'"
@@ -376,7 +385,9 @@ function onVoiceClick() {
           >
             {{ testing ? t('portal.agentsCenter.llmTesting') : t('portal.agentsCenter.llmTest') }}
           </el-button>
-          <span class="ac-config-hint">{{ t('portal.agentsCenter.llmUseLocal') }}</span>
+          <span class="ac-config-hint">
+            {{ llmStore.canEdit ? t('portal.agentsCenter.llmUseLocal') : t('portal.agentsCenter.llmReadOnlyHint') }}
+          </span>
         </div>
         <div v-if="testResult" class="ac-probe" :class="testResult.code === 'OK' ? 'ok' : 'fail'">
           <span class="ac-probe-label">{{ probeLabel(testResult.code) }}</span>
@@ -505,10 +516,16 @@ function onVoiceClick() {
   margin-bottom: 12px;
 }
 .ac-config-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
   font-weight: 700;
   color: #1a6b5c;
   margin-bottom: 10px;
+}
+.ac-config-ro {
+  font-weight: 500;
 }
 .ac-config-actions {
   display: flex;
