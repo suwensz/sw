@@ -129,10 +129,24 @@ function forwardToLlmProxy(req, res) {
   })
 }
 
-server.listen(PORT, '0.0.0.0', () => {
+// 双栈监听：优先 IPv6 '::'（浏览器会将 localhost 优先解析为 ::1，仅绑 0.0.0.0 会导致 IPv6 打不开），
+// IPv6 不可用时自动回退 IPv4。
+function startLog() {
   console.log(`[static-server] 素衡OS 预览服务已启动: http://localhost:${PORT}`)
   console.log(`[static-server] 托管目录: ${ROOT}`)
+}
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRNOTAVAIL' || err.code === 'EAFNOSUPPORT') {
+    console.log('[static-server] IPv6 不可用，回退 IPv4 0.0.0.0')
+    server.listen(PORT, '0.0.0.0', startLog)
+  } else {
+    console.error('[static-server] 启动失败:', err.message)
+    process.exit(1)
+  }
 })
+
+server.listen(PORT, '::', startLog)
 
 process.on('SIGINT', () => {
   server.close(() => process.exit(0))
