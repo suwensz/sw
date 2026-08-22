@@ -120,6 +120,57 @@ function sendJson(res, status, obj, extraHeaders) {
   res.end(JSON.stringify(obj))
 }
 
+/* ============== 密钥保险箱连通性探测 ============== */
+
+/**
+ * 用保险箱真实 Key 对当前服务商发起最小请求（密钥不出网关）。
+ * 返回 code: OK | NO_KEY | KEY_INVALID | UPSTREAM_ERROR | PROXY_ERROR
+ */
+async function probeVault() {
+  const v = vault.loadVault()
+  const apiKey = vault.llmApiKey()
+  const endpoint = v.endpoint
+  if (!apiKey) return { ok: false, code: 'NO_KEY' }
+  if (!endpoint) return { ok: false, code: 'UPSTREAM_ERROR', detail: 'endpoint not configured' }
+
+  const isCoze = v.provider === 'coze'
+  const payload = isCoze
+    ? {
+        bot_id: v.botId || 'suheng-os-agent',
+        user_id: 'suheng-os-user',
+        stream: false,
+        auto_save_history: false,
+        additional_messages: [{ role: 'user', content: '你好，请用一句话简单回复' }],
+      }
+    : {
+        model: v.model || 'deepseek-chat',
+        messages: [{ role: 'user', content: '你好，请用一句话简单回复' }],
+        temperature: 0.3,
+        max_tokens: 64,
+        stream: false,
+      }
+
+  try {
+    const upstream = await forward({ endpoint, apiKey, payload })
+    if (upstream.status === 200) {
+      let text = ''
+      try {
+        const d = JSON.parse(upstream.body)
+        text = (d && d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || ''
+      } catch {
+        text = ''
+      }
+      return { ok: true, code: 'OK', detail: String(text).slice(0, 80) }
+    }
+    if (upstream.status === 401 || upstream.status === 403) {
+      return { ok: false, code: 'KEY_INVALID', detail: `HTTP ${upstream.status}: ${upstream.body.slice(0, 160)}` }
+    }
+    return { ok: false, code: 'UPSTREAM_ERROR', detail: `HTTP ${upstream.status}: ${upstream.body.slice(0, 160)}` }
+  } catch (err) {
+    return { ok: false, code: 'PROXY_ERROR', detail: String((err && err.message) || err) }
+  }
+}
+
 /* ============== Function Calling 智能体循环（阶段3） ============== */
 
 const TOOL_MAX_ROUNDS = 3
@@ -301,8 +352,12 @@ const server = http.createServer(async (req, res) => {
 
   // 密钥保险箱：测试连接（用真实 Key，不返回 Key）
   if (req.method === 'POST' && req.url === '/vault/probe') {
-    const result = await probeVault()
-    sendJson(res, 200, result)
+    try {
+      const result = await probeVault()
+      sendJson(res, 200, result)
+    } catch (err) {
+      sendJson(res, 500, { ok: false, code: 'PROXY_ERROR', detail: String((err && err.message) || err) })
+    }
     return
   }
 

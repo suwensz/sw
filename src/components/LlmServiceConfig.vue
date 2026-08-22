@@ -31,6 +31,7 @@ function probeLabel(code: LlmProbeCode): string {
 const CODE_MAP: Record<string, LlmProbeCode> = {
   OK: 'OK',
   NO_KEY: 'NO_KEY',
+  KEY_INVALID: 'KEY_INVALID',
   UPSTREAM_ERROR: 'MODEL_ERROR',
   PROXY_ERROR: 'PROXY_DOWN',
 }
