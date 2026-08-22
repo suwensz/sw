@@ -76,6 +76,15 @@ interface LlmConfigData {
   model: string
   /** 扣子 Coze 机器人 ID（仅在 provider=coze 时使用） */
   botId?: string
+  /** 向量化服务（知识库语义检索，存 vault keys.embedding 槽位） */
+  embedding?: {
+    provider: 'siliconflow' | 'zhipu'
+    /** 前端仅持脱敏 Key 或临时明文；权威存储在服务端保险箱 */
+    apiKey: string
+    hasKey?: boolean
+    endpoint: string
+    model: string
+  }
   /** 配置锁定：锁定后管理端不可修改，仅开发端（最高控制权）可解锁 */
   locked?: boolean
   /** 最近一次修改来源门户 */
@@ -97,14 +106,40 @@ function loadConfig(): LlmConfigData {
     if (raw) {
       const parsed = JSON.parse(raw) as LlmConfigData
       if (parsed && typeof parsed === 'object') {
-        return { ...parsed, botId: parsed.botId || DEFAULT_BOT_ID, locked: !!parsed.locked }
+        return {
+          ...parsed,
+          botId: parsed.botId || DEFAULT_BOT_ID,
+          locked: !!parsed.locked,
+          embedding: parsed.embedding || {
+            provider: 'siliconflow' as const,
+            apiKey: '',
+            hasKey: false,
+            endpoint: 'https://api.siliconflow.cn/v1/embeddings',
+            model: 'BAAI/bge-m3',
+          },
+        }
       }
     }
   } catch {
     /* ignore */
   }
   const preset = LLM_PROVIDERS[0]
-  return { provider: 'deepseek', apiKey: '', hasKey: false, endpoint: preset.endpoint, model: preset.model, botId: DEFAULT_BOT_ID, locked: false }
+  return {
+    provider: 'deepseek',
+    apiKey: '',
+    hasKey: false,
+    endpoint: preset.endpoint,
+    model: preset.model,
+    botId: DEFAULT_BOT_ID,
+    embedding: {
+      provider: 'siliconflow',
+      apiKey: '',
+      hasKey: false,
+      endpoint: 'https://api.siliconflow.cn/v1/embeddings',
+      model: 'BAAI/bge-m3',
+    },
+    locked: false,
+  }
 }
 
 export const useLlmConfigStore = defineStore('llmConfig', () => {
@@ -130,11 +165,19 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
   /** 写 localStorage（脱敏 Key 也写入，便于三端共享 UI 状态；明文 Key 仅在内存 transient） */
   function writeLocal() {
     try {
+      const e = data.value.embedding
       const persistable = {
         ...data.value,
         // localStorage 不持久化明文 Key：hasKey 标记已足够 UI 判断
         apiKey: data.value.apiKey && data.value.apiKey.startsWith('***') ? data.value.apiKey : '',
         hasKey: data.value.hasKey,
+        embedding: e
+          ? {
+              ...e,
+              apiKey: e.apiKey && e.apiKey.startsWith('***') ? e.apiKey : '',
+              hasKey: e.hasKey,
+            }
+          : undefined,
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable))
       // 内存里若已被清空明文 Key，下次读取时由 hasKey + 脱敏维持显示
@@ -166,7 +209,10 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
     try {
       const res = await fetch(VAULT_URL)
       if (!res.ok) return
-      const json = (await res.json()) as { ok: boolean; config?: Partial<LlmConfigData> }
+      const json = (await res.json()) as {
+        ok: boolean
+        config?: Partial<LlmConfigData> & { embedding?: LlmConfigData['embedding'] }
+      }
       if (json.ok && json.config) {
         const c = json.config
         data.value.provider = (c.provider as LlmProvider) || data.value.provider
@@ -175,6 +221,15 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
         data.value.endpoint = c.endpoint || data.value.endpoint
         data.value.model = c.model || data.value.model
         data.value.botId = c.botId || data.value.botId
+        if (c.embedding) {
+          data.value.embedding = {
+            provider: (c.embedding.provider as 'siliconflow' | 'zhipu') || 'siliconflow',
+            apiKey: c.embedding.apiKey || '',
+            hasKey: c.embedding.hasKey,
+            endpoint: c.embedding.endpoint || 'https://api.siliconflow.cn/v1/embeddings',
+            model: c.embedding.model || 'BAAI/bge-m3',
+          }
+        }
         data.value.locked = c.locked
         data.value.updatedBy = c.updatedBy
         data.value.updatedAt = c.updatedAt
@@ -190,6 +245,7 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
     data.value.updatedBy = portal
     data.value.updatedAt = new Date().toISOString()
     writeLocal()
+    const e = data.value.embedding
     void pushToVault({
       provider: data.value.provider,
       apiKey: data.value.apiKey && !data.value.apiKey.startsWith('***') ? data.value.apiKey : undefined,
@@ -197,6 +253,15 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
       model: data.value.model,
       botId: data.value.botId,
       locked: data.value.locked,
+      keys: {
+        embedding: {
+          provider: e?.provider,
+          // 脱敏占位不上送（服务端视为「未修改」）
+          apiKey: e?.apiKey && !e.apiKey.startsWith('***') ? e.apiKey : undefined,
+          endpoint: e?.endpoint,
+          model: e?.model,
+        },
+      },
     })
   }
 
@@ -238,6 +303,48 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
     persist()
   }
 
+  /* ---------------- 向量化服务（知识库语义检索） ---------------- */
+
+  const EMBEDDING_PRESETS = {
+    siliconflow: { endpoint: 'https://api.siliconflow.cn/v1/embeddings', model: 'BAAI/bge-m3' },
+    zhipu: { endpoint: 'https://open.bigmodel.cn/api/paas/v4/embeddings', model: 'embedding-3' },
+  } as const
+
+  function ensureEmbedding() {
+    if (!data.value.embedding) {
+      data.value.embedding = {
+        provider: 'siliconflow',
+        apiKey: '',
+        hasKey: false,
+        endpoint: EMBEDDING_PRESETS.siliconflow.endpoint,
+        model: EMBEDDING_PRESETS.siliconflow.model,
+      }
+    }
+    return data.value.embedding
+  }
+
+  function setEmbeddingProvider(p: 'siliconflow' | 'zhipu') {
+    const e = ensureEmbedding()
+    e.provider = p
+    const preset = EMBEDDING_PRESETS[p]
+    e.endpoint = preset.endpoint
+    e.model = preset.model
+    persist()
+  }
+
+  function setEmbeddingApiKey(key: string) {
+    const e = ensureEmbedding()
+    e.apiKey = key.trim()
+    e.hasKey = !!e.apiKey && !e.apiKey.startsWith('***')
+    persist()
+  }
+
+  function setEmbeddingModel(model: string) {
+    const e = ensureEmbedding()
+    e.model = model.trim()
+    persist()
+  }
+
   function reset() {
     const preset = LLM_PROVIDERS[0]
     data.value = {
@@ -247,6 +354,13 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
       endpoint: preset.endpoint,
       model: preset.model,
       botId: DEFAULT_BOT_ID,
+      embedding: {
+        provider: 'siliconflow',
+        apiKey: '',
+        hasKey: false,
+        endpoint: 'https://api.siliconflow.cn/v1/embeddings',
+        model: 'BAAI/bge-m3',
+      },
       locked: data.value.locked,
     }
     persist()
@@ -269,6 +383,9 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
     setEndpoint,
     setModel,
     setBotId,
+    setEmbeddingProvider,
+    setEmbeddingApiKey,
+    setEmbeddingModel,
     reset,
   }
 })

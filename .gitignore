@@ -32,3 +32,5 @@ _tmp_*
 
 # 密钥保险箱（加密落盘，不入库）
 scripts/.vault.json
+# 知识库 SQLite（含 WAL/SHM 临时文件）
+scripts/suheng.db*

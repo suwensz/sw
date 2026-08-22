@@ -77,6 +77,39 @@ const updatedText = computed(() => {
 const keyPlaceholder = computed(() =>
   llmStore.data.hasKey ? t('portal.agentsCenter.llmApiKeyKeep') : t('portal.agentsCenter.llmApiKeyPlaceholder'),
 )
+
+/* ---------------- 向量化服务（知识库语义检索） ---------------- */
+
+const EMBED_PROVIDERS = [
+  { id: 'siliconflow' as const, name: 'SiliconFlow（BGE-M3）', docUrl: 'https://cloud.siliconflow.cn' },
+  { id: 'zhipu' as const, name: '智谱 BigModel', docUrl: 'https://open.bigmodel.cn' },
+]
+
+const embedProviderMeta = computed(
+  () => EMBED_PROVIDERS.find((p) => p.id === llmStore.data.embedding?.provider) ?? EMBED_PROVIDERS[0],
+)
+
+const embedKeyPlaceholder = computed(() =>
+  llmStore.data.embedding?.hasKey ? t('portal.agentsCenter.llmApiKeyKeep') : t('portal.agentsCenter.llmEmbedKeyPlaceholder'),
+)
+
+/* ---------------- 知识库统计 ---------------- */
+
+const kbStats = ref<{ docs: number; chunks: number; embedded: number; vectorReady: boolean } | null>(null)
+
+async function loadKbStats() {
+  try {
+    const res = await fetch('/api/kb/stats')
+    if (!res.ok) return
+    const json = await res.json()
+    if (json.ok) {
+      kbStats.value = { docs: json.docs, chunks: json.chunks, embedded: json.embedded, vectorReady: !!json.vectorReady }
+    }
+  } catch {
+    /* 网关不可达时忽略 */
+  }
+}
+loadKbStats()
 </script>
 
 <template>
@@ -151,6 +184,46 @@ const keyPlaceholder = computed(() =>
           :model-value="llmStore.data.endpoint"
           @update:model-value="(v: string) => llmStore.setEndpoint(v)"
         />
+      </el-form-item>
+
+      <!-- 向量化服务（知识库语义检索，可选） -->
+      <el-divider content-position="left">{{ t('portal.agentsCenter.llmEmbedTitle') }}</el-divider>
+      <div class="llm-embed-desc">
+        {{ t('portal.agentsCenter.llmEmbedDesc') }}
+        <el-tag v-if="kbStats" size="small" :type="kbStats.vectorReady ? 'success' : 'info'" effect="plain">
+          {{ t('portal.agentsCenter.kbStatsLabel') }}：{{ kbStats.docs }} · {{ kbStats.vectorReady ? t('portal.agentsCenter.kbModeVector') : t('portal.agentsCenter.kbModeBm25') }}
+        </el-tag>
+      </div>
+      <div class="llm-form-grid">
+        <el-form-item :label="t('portal.agentsCenter.llmEmbedProvider')">
+          <el-select
+            :model-value="llmStore.data.embedding?.provider || 'siliconflow'"
+            style="width: 100%"
+            @change="(v: string) => llmStore.setEmbeddingProvider(v as 'siliconflow' | 'zhipu')"
+          >
+            <el-option v-for="p in EMBED_PROVIDERS" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('portal.agentsCenter.llmEmbedModel')">
+          <el-input
+            :model-value="llmStore.data.embedding?.model || 'BAAI/bge-m3'"
+            @update:model-value="(v: string) => llmStore.setEmbeddingModel(v)"
+          />
+        </el-form-item>
+      </div>
+      <el-form-item :label="t('portal.agentsCenter.llmEmbedApiKey')">
+        <div class="llm-key-row">
+          <el-input
+            :model-value="llmStore.data.embedding?.apiKey || ''"
+            type="password"
+            show-password
+            :placeholder="embedKeyPlaceholder"
+            @update:model-value="(v: string) => llmStore.setEmbeddingApiKey(v)"
+          />
+          <el-link class="llm-key-apply" type="primary" :href="embedProviderMeta.docUrl" target="_blank">
+            {{ t('portal.agentsCenter.llmApplyKey') }}
+          </el-link>
+        </div>
       </el-form-item>
 
       <div class="llm-admin-actions">
@@ -242,6 +315,15 @@ const keyPlaceholder = computed(() =>
 .llm-key-apply {
   flex: none;
   font-size: 12px;
+}
+.llm-embed-desc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary, #909399);
 }
 .llm-admin-actions {
   display: flex;

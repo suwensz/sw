@@ -60,6 +60,19 @@ const server = http.createServer((req, res) => {
     forwardToLlmProxy(req, res, '/vault/probe')
     return
   }
+  // 知识库转发：/api/kb/* → 网关 /kb/*（阶段2 RAG）
+  if (urlPath.startsWith('/api/kb/')) {
+    const gwPath = urlPath.slice(4) // 去掉 /api 前缀 → /kb/...
+    const allowed =
+      (req.method === 'POST' && (gwPath === '/kb/search' || gwPath === '/kb/ingest' || gwPath === '/kb/embed/pending')) ||
+      (req.method === 'GET' && (gwPath === '/kb/stats' || gwPath === '/kb/history'))
+    if (!allowed) {
+      res.writeHead(405).end('Method Not Allowed')
+      return
+    }
+    forwardToLlmProxy(req, res, gwPath)
+    return
+  }
   // 目录请求 → 构建产物主站
   if (urlPath.endsWith('/')) urlPath += 'index.html'
   let filePath = path.normalize(path.join(ROOT, urlPath))

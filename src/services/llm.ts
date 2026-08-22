@@ -10,6 +10,7 @@
 //   - 密钥仅保存在浏览器 localStorage，供演示/内网部署使用。
 import { useLlmConfigStore, LLM_PROVIDERS } from '@/stores/llmConfig'
 import { localAnswer, type Domain } from '@/services/knowledge'
+import { searchKb, type KbHit } from '@/services/kb'
 
 /** 本地代理地址：同源 /api/llm（推荐），可用 VITE_LLM_PROXY 覆盖 */
 const PROXY_URL = (import.meta.env.VITE_LLM_PROXY as string) || '/api/llm'
@@ -69,6 +70,8 @@ export interface AiResult {
   answer: string
   /** 回答来源：llm = 云端 AI，local = 本地知识库 */
   source: 'llm' | 'local'
+  /** 知识库检索引用（RAG 命中时随回答返回，前端渲染来源标注） */
+  citations?: KbHit[]
 }
 
 /** 各域系统提示词：要求 AI 依据素衡本系统内置数据库回答 */
@@ -201,18 +204,23 @@ export async function askLLM(
   domain: Domain,
   question: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+  /** 追加到 system prompt 末尾的内容（RAG 检索结果注入用） */
+  systemExtra = '',
 ): Promise<string | null> {
   const cfg = useLlmConfigStore()
   if (!cfg.configured || !cfg.data.endpoint) return null
 
-  const system = buildSystemPrompt(domain)
+  const system = buildSystemPrompt(domain) + systemExtra
   const userMsg = question
 
   try {
     if (cfg.data.provider === 'coze') {
-      // Coze 简化为单轮 + 最近一条上下文
+      // Coze 简化为单轮 + 最近一条上下文（RAG 上下文一并拼入）
       const last = history[history.length - 1]
-      const content = last ? `（对话上文）${last.content}\n（当前提问）${userMsg}` : userMsg
+      const ragPrefix = systemExtra ? `${systemExtra}\n` : ''
+      const content = last
+        ? `${ragPrefix}（对话上文）${last.content}\n（当前提问）${userMsg}`
+        : `${ragPrefix}${userMsg}`
       return await callCoze(cfg.data.endpoint, cfg.data.apiKey, cfg.data.botId || '', content)
     }
     const messages: LlmMessage[] = [
@@ -360,18 +368,34 @@ export async function enhanceQuestion(
   }
 }
 
-/** 统一 AI 问答入口：云端优先，本地知识库兜底 */
+/** 把知识库命中拼为注入 system prompt 的检索上下文 */
+function buildRagContext(hits: KbHit[]): string {
+  const refs = hits
+    .map((h, i) => {
+      const book = h.meta && (h.meta.book || h.meta.meridian || h.meta.category)
+      const src = book ? `《${String(book)}》` : ''
+      return `[${i + 1}] ${src}${h.doc_title}：${h.text}`
+    })
+    .join('\n---\n')
+  return `\n\n【知识库检索结果】请优先依据以下资料回答；引用资料时用 [编号] 标注来源；若资料与问题无关可忽略：\n${refs}`
+}
+
+/** 统一 AI 问答入口：知识库检索增强 → 云端优先，本地知识库兜底 */
 export async function askAI(
   domain: Domain,
   question: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
 ): Promise<AiResult> {
-  const local = localAnswer(domain, question)
-  const llm = await askLLM(domain, question, history)
+  // RAG：先检索知识库（静默失败，不可用时退化为纯 LLM 回答）
+  const rag = await searchKb(domain, question, 5)
+  const ragContext = rag && rag.hits.length ? buildRagContext(rag.hits) : ''
+
+  const llm = await askLLM(domain, question, history, ragContext)
   if (llm && llm.trim()) {
-    return { answer: llm.trim(), source: 'llm' }
+    return { answer: llm.trim(), source: 'llm', citations: rag?.hits }
   }
-  return { answer: local.answer, source: 'local' }
+  const local = localAnswer(domain, question)
+  return { answer: local.answer, source: 'local', citations: rag?.hits }
 }
 
 /** 服务商预设导出（供设置面板使用） */

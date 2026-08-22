@@ -9,11 +9,14 @@ import { ElMessage } from 'element-plus'
 import { askAI, enhanceQuestion, LLM_PROVIDERS, testLLMConnection, type LlmProbeCode } from '@/services/llm'
 import { useLlmConfigStore } from '@/stores/llmConfig'
 import type { Domain } from '@/services/knowledge'
+import type { KbHit } from '@/services/kb'
 
 interface ChatMsg {
   role: 'user' | 'assistant'
   content: string
   source?: 'llm' | 'local'
+  /** 知识库检索引用（RAG 命中时展示来源标注） */
+  citations?: KbHit[]
 }
 
 const props = defineProps<{ modelValue: boolean; domain: Domain }>()
@@ -209,7 +212,7 @@ async function send(text?: string) {
       .slice(0, -1)
       .map((m) => ({ role: m.role, content: m.content }))
     const res = await askAI(currentDomain.value, q, history)
-    messages.value.push({ role: 'assistant', content: res.answer, source: res.source })
+    messages.value.push({ role: 'assistant', content: res.answer, source: res.source, citations: res.citations })
   } finally {
     loading.value = false
     scrollBottom()
@@ -410,6 +413,23 @@ function onVoiceClick() {
               {{ m.source === 'llm' ? t('portal.agentsCenter.chatLLMTag') : t('portal.agentsCenter.chatLocalTag') }}
             </span>
             <div class="ac-content">{{ m.content }}</div>
+            <!-- 知识库来源标注（RAG 引用，悬停查看原文） -->
+            <div v-if="m.citations?.length" class="ac-citations">
+              <span class="ac-citations-label">{{ t('portal.agentsCenter.kbSources') }}</span>
+              <el-tooltip
+                v-for="(c, i) in m.citations"
+                :key="c.chunk_id"
+                placement="top"
+                :show-after="200"
+              >
+                <template #content>
+                  <div class="ac-cit-tip">
+                    {{ c.text.length > 220 ? c.text.slice(0, 220) + '…' : c.text }}
+                  </div>
+                </template>
+                <span class="ac-cit-chip">[{{ i + 1 }}] {{ c.doc_title }}</span>
+              </el-tooltip>
+            </div>
           </div>
         </div>
       </template>
@@ -642,6 +662,39 @@ function onVoiceClick() {
 }
 .ac-thinking {
   color: var(--color-text-secondary, #909399);
+}
+
+/* 知识库来源标注（RAG 引用） */
+.ac-citations {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.08);
+}
+.ac-citations-label {
+  font-size: 10.5px;
+  color: var(--color-text-secondary, #909399);
+}
+.ac-cit-chip {
+  font-size: 10.5px;
+  color: #1a6b5c;
+  background: #eef7f2;
+  border: 1px solid rgba(26, 107, 92, 0.18);
+  border-radius: 999px;
+  padding: 1px 8px;
+  cursor: default;
+  transition: background 0.15s;
+}
+.ac-cit-chip:hover {
+  background: #e2f0ea;
+}
+.ac-cit-tip {
+  max-width: 340px;
+  line-height: 1.6;
+  font-size: 12px;
 }
 
 /* 快速提问 */

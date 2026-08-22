@@ -1,17 +1,20 @@
 /**
  * 素衡OS · AI 服务统一网关（suheng-gateway）
  *
- * 由原 llm-proxy 升级而来，在「转发 LLM 请求」之外新增「密钥保险箱」能力：
- *   - 所有 AI 服务密钥（DeepSeek/豆包/扣子/Embedding）以 AES-256-GCM 加密落盘
- *   - 三端权限：开发端可写、管理端未锁定可写、运营端只读（校验 X-Portal 头）
- *   - 列表接口返回脱敏 Key（仅末 4 位），明文 Key 永不出网关
+ * 由原 llm-proxy 升级而来，在「转发 LLM 请求」之外提供：
+ *   - 密钥保险箱（gateway/vault.cjs）：AES-256-GCM 加密落盘，三端权限校验
+ *   - 知识库（gateway/kb.cjs）：SQLite + BM25/向量检索（阶段2 RAG）
  *
  * 端点：
- *   GET  /health         健康检查
- *   POST /llm            LLM 请求转发（保持原协议：{endpoint, apiKey, payload}）
- *   GET  /vault          读取保险箱配置（脱敏）
- *   PUT  /vault          保存配置（需 X-Portal 头，按权限校验）
- *   POST /vault/probe    用保险箱真实 Key 测试服务商连通性
+ *   GET  /health           健康检查（含知识库统计）
+ *   POST /llm              LLM 请求转发（保持原协议：{endpoint, apiKey, payload}）
+ *   GET  /vault            读取保险箱配置（脱敏）
+ *   PUT  /vault            保存配置（需 X-Portal 头，按权限校验）
+ *   POST /vault/probe      用保险箱真实 Key 测试服务商连通性
+ *   POST /kb/search        知识库检索 {query, domain, topK, filters}
+ *   GET  /kb/stats         知识库统计
+ *   POST /kb/ingest        导入文档（X-Portal: dev）
+ *   POST /kb/embed/pending 补算缺失向量（X-Portal: dev）
  *
  * 用法：
  *   node scripts/llm-proxy.cjs                       # 默认端口 8898
@@ -23,156 +26,13 @@
  */
 const http = require('http')
 const https = require('https')
-const crypto = require('crypto')
 const fs = require('fs')
-const path = require('path')
+
+const vault = require('./gateway/vault.cjs')
+const kb = require('./gateway/kb.cjs')
 
 const HOST = process.env.HOST || '127.0.0.1'
 const PORT = Number(process.env.PORT) || 8898
-
-/** 保险箱文件位置（与脚本同目录的 .vault.json，加密存储） */
-const VAULT_FILE = path.join(__dirname, '.vault.json')
-/** 主密钥：优先环境变量，未设置时用开发默认值（仅演示，生产必须指定 SUHENG_VAULT_KEY） */
-const VAULT_KEY =
-  process.env.SUHENG_VAULT_KEY || 'suheng-os-dev-vault-key-please-change-in-production'
-
-/** 默认配置（首次启动或文件丢失时） */
-const DEFAULT_VAULT = {
-  provider: 'deepseek',
-  apiKey: '',
-  endpoint: 'https://api.deepseek.com/v1/chat/completions',
-  model: 'deepseek-chat',
-  botId: 'suheng-os-agent',
-  locked: false,
-  updatedBy: null,
-  updatedAt: null,
-}
-
-/* ============== 加密原语（AES-256-GCM） ============== */
-
-/** 从任意长度 passphrase 派生 32 字节密钥（SHA-256） */
-function deriveKey(pass) {
-  return crypto.createHash('sha256').update(String(pass)).digest()
-}
-
-/** 加密并写盘 */
-function saveVault(obj) {
-  const plain = JSON.stringify(obj)
-  const key = deriveKey(VAULT_KEY)
-  const iv = crypto.randomBytes(12)
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
-  const enc = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()])
-  const tag = cipher.getAuthTag()
-  const blob = Buffer.concat([iv, tag, enc])
-  fs.writeFileSync(VAULT_FILE, blob)
-}
-
-/** 读盘并解密；失败/不存在返回 DEFAULT_VAULT 副本 */
-function loadVault() {
-  try {
-    if (!fs.existsSync(VAULT_FILE)) return { ...DEFAULT_VAULT }
-    const blob = fs.readFileSync(VAULT_FILE)
-    if (blob.length < 28) return { ...DEFAULT_VAULT }
-    const iv = blob.subarray(0, 12)
-    const tag = blob.subarray(12, 28)
-    const enc = blob.subarray(28)
-    const key = deriveKey(VAULT_KEY)
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
-    decipher.setAuthTag(tag)
-    const dec = Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8')
-    const parsed = JSON.parse(dec)
-    return { ...DEFAULT_VAULT, ...parsed, locked: !!parsed.locked }
-  } catch (err) {
-    console.warn('[gateway] 保险箱解密失败，回退默认配置:', err.message)
-    return { ...DEFAULT_VAULT }
-  }
-}
-
-/* ============== 脱敏与权限 ============== */
-
-/** 脱敏 API Key：保留末 4 位，前缀以长度提示 */
-function maskKey(k) {
-  if (!k) return ''
-  const s = String(k)
-  if (s.length <= 4) return '***'
-  return '***' + s.slice(-4)
-}
-
-/** 返回脱敏后的保险箱视图（明文 Key 永不外泄） */
-function vaultView() {
-  const v = loadVault()
-  return {
-    provider: v.provider,
-    apiKey: maskKey(v.apiKey),
-    hasKey: !!v.apiKey,
-    endpoint: v.endpoint,
-    model: v.model,
-    botId: v.botId,
-    locked: v.locked,
-    updatedBy: v.updatedBy,
-    updatedAt: v.updatedAt,
-  }
-}
-
-/**
- * 保存配置（按门户权限校验）
- * @param {object} patch 待合并字段
- * @param {string} portal 调用方门户（dev/admin/ops）
- * @returns {{ok:boolean, error?:string}}
- */
-function setVaultConfig(patch, portal) {
-  if (portal !== 'dev' && portal !== 'admin') {
-    return { ok: false, error: '运营端只读，无写入权限' }
-  }
-  const cur = loadVault()
-  // 锁定态：仅开发端可写（含解锁动作本身）
-  if (cur.locked && portal !== 'dev') {
-    return { ok: false, error: '配置已锁定，仅开发端可修改' }
-  }
-  const next = { ...cur, ...patch, updatedBy: portal, updatedAt: new Date().toISOString() }
-  saveVault(next)
-  return { ok: true }
-}
-
-/* ============== 测试连接（用真实 Key） ============== */
-
-/** 用保险箱真实 Key 对服务商发起最小请求 */
-function probeVault() {
-  return new Promise((resolve) => {
-    const v = loadVault()
-    if (!v.apiKey || !v.endpoint) {
-      resolve({ ok: false, code: 'NO_KEY', detail: '保险箱未配置 API Key 或接口地址' })
-      return
-    }
-    const isCoze = v.provider === 'coze'
-    const payload = isCoze
-      ? {
-          bot_id: v.botId || 'suheng-os-agent',
-          user_id: 'suheng-os-user',
-          stream: false,
-          auto_save_history: false,
-          additional_messages: [{ role: 'user', content: '你好，请用一句话简单回复' }],
-        }
-      : {
-          model: v.model || 'deepseek-chat',
-          messages: [{ role: 'user', content: '你好，请用一句话简单回复' }],
-          temperature: 0.3,
-          max_tokens: 64,
-          stream: false,
-        }
-    forward({ endpoint: v.endpoint, apiKey: v.apiKey, payload })
-      .then((up) => {
-        if (up.status >= 200 && up.status < 300) {
-          resolve({ ok: true, code: 'OK', detail: up.body.slice(0, 120) })
-        } else {
-          resolve({ ok: false, code: 'UPSTREAM_ERROR', detail: `HTTP ${up.status} ${up.body.slice(0, 180)}` })
-        }
-      })
-      .catch((err) => {
-        resolve({ ok: false, code: 'PROXY_ERROR', detail: String(err.message || err) })
-      })
-  })
-}
 
 /* ============== LLM 转发（原 llm-proxy 逻辑） ============== */
 
@@ -264,16 +124,23 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Portal')
 
-  // 健康检查
+  // 健康检查（含知识库统计）
   if (req.method === 'GET' && req.url === '/health') {
+    let kbStats = null
+    try {
+      kbStats = kb.stats()
+    } catch {
+      /* kb 模块异常不影响健康检查 */
+    }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })
     res.end(
       JSON.stringify({
         ok: true,
         service: 'suheng-gateway',
-        version: 2,
+        version: 3,
         uptime: process.uptime(),
-        vault: fs.existsSync(VAULT_FILE),
+        vault: fs.existsSync(vault.VAULT_FILE),
+        kb: kbStats,
       }),
     )
     return
@@ -287,7 +154,7 @@ const server = http.createServer(async (req, res) => {
 
   // 密钥保险箱：读取（脱敏）
   if (req.method === 'GET' && req.url === '/vault') {
-    sendJson(res, 200, { ok: true, config: vaultView() })
+    sendJson(res, 200, { ok: true, config: vault.vaultView() })
     return
   }
 
@@ -303,7 +170,7 @@ const server = http.createServer(async (req, res) => {
         return
       }
       const portal = (req.headers['x-portal'] || 'ops').toString()
-      const result = setVaultConfig(patch, portal)
+      const result = vault.setVaultConfig(patch, portal)
       sendJson(res, result.ok ? 200 : 403, result)
     } catch (err) {
       sendJson(res, 500, { ok: false, error: String((err && err.message) || err) })
@@ -337,9 +204,9 @@ const server = http.createServer(async (req, res) => {
       }
       // 判断前端是否传了可用 Key：空值或脱敏占位（以 *** 开头）都视为「未提供」
       const keyUsable = apiKey && !String(apiKey).startsWith('***')
-      const v = keyUsable ? null : loadVault()
+      const v = keyUsable ? null : vault.loadVault()
       const finalEndpoint = endpoint || (v && v.endpoint) || ''
-      const finalApiKey = keyUsable ? apiKey : (v && v.apiKey) || ''
+      const finalApiKey = keyUsable ? apiKey : (v && vault.llmApiKey()) || ''
       if (!finalEndpoint || !finalApiKey) {
         sendJson(res, 400, { error: 'no apiKey available (vault empty or not configured)' })
         return
@@ -360,12 +227,85 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
-  sendJson(res, 404, { error: 'not found; endpoints: GET /health, GET /vault, PUT /vault, POST /vault/probe, POST /llm' })
+  /* ============== 知识库（阶段2 RAG） ============== */
+
+  // 知识库检索（只读，无门户限制）
+  if (req.method === 'POST' && req.url === '/kb/search') {
+    try {
+      const raw = await readBody(req)
+      let body
+      try {
+        body = JSON.parse(raw)
+      } catch {
+        sendJson(res, 400, { ok: false, error: 'invalid json body' })
+        return
+      }
+      const result = await kb.search(body || {})
+      sendJson(res, 200, { ok: true, ...result })
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: String((err && err.message) || err) })
+    }
+    return
+  }
+
+  // 知识库统计（只读）
+  if (req.method === 'GET' && req.url === '/kb/stats') {
+    try {
+      sendJson(res, 200, { ok: true, ...kb.stats() })
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: String((err && err.message) || err) })
+    }
+    return
+  }
+
+  // 知识库导入（仅开发端）
+  if (req.method === 'POST' && req.url === '/kb/ingest') {
+    const portal = (req.headers['x-portal'] || 'ops').toString()
+    if (portal !== 'dev') {
+      sendJson(res, 403, { ok: false, error: '知识库导入仅开发端可用' })
+      return
+    }
+    try {
+      const raw = await readBody(req)
+      let body
+      try {
+        body = JSON.parse(raw)
+      } catch {
+        sendJson(res, 400, { ok: false, error: 'invalid json body' })
+        return
+      }
+      const result = kb.ingest(body || {})
+      sendJson(res, 200, result)
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: String((err && err.message) || err) })
+    }
+    return
+  }
+
+  // 补算缺失向量（仅开发端）
+  if (req.method === 'POST' && req.url === '/kb/embed/pending') {
+    const portal = (req.headers['x-portal'] || 'ops').toString()
+    if (portal !== 'dev') {
+      sendJson(res, 403, { ok: false, error: '仅开发端可用' })
+      return
+    }
+    try {
+      const result = await kb.embedPending()
+      sendJson(res, result.ok ? 200 : 400, result)
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: String((err && err.message) || err) })
+    }
+    return
+  }
+
+  sendJson(res, 404, { error: 'not found; endpoints: GET /health, GET/PUT /vault, POST /vault/probe, POST /llm, POST /kb/search, GET /kb/stats, POST /kb/ingest, POST /kb/embed/pending' })
 })
 
 server.listen(PORT, HOST, () => {
   console.log(`[suheng-gateway] 素衡OS AI 网关已启动  http://${HOST}:${PORT}`)
-  console.log(`[suheng-gateway] LLM 转发 POST /llm  |  密钥保险箱 GET/PUT /vault  |  测试连接 POST /vault/probe`)
+  console.log(`[suheng-gateway] LLM 转发 POST /llm  |  密钥保险箱 GET/PUT /vault  |  知识库 POST /kb/search`)
+  const s = kb.stats()
+  console.log(`[suheng-gateway] 知识库: ${s.docs} 文档 / ${s.chunks} 切片 / ${s.embedded} 向量${s.vectorReady ? '（向量检索就绪）' : '（BM25 检索）'}`)
   if (!process.env.SUHENG_VAULT_KEY) {
     console.warn('[suheng-gateway] 警告：未设置 SUHENG_VAULT_KEY 环境变量，使用开发默认密钥（仅演示）')
   }
