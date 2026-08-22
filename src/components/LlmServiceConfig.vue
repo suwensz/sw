@@ -2,10 +2,12 @@
 // 素衡OS · AI 服务配置（管理端 / 开发端共用）
 // 权限：开发端最高控制权（可编辑 + 可锁定/解锁）；管理端未锁定时可编辑。
 // 运营端不使用本组件（其对话框内配置面板为只读继承）。
+// 密钥：明文 Key 保存到服务端密钥保险箱（AES-256-GCM 加密落盘），
+// 前端仅显示脱敏视图（***末4位）；测试连接由网关用真实 Key 探测。
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { LLM_PROVIDERS, testLLMConnection, type LlmProbeCode } from '@/services/llm'
+import { LLM_PROVIDERS, type LlmProbeCode } from '@/services/llm'
 import { useLlmConfigStore } from '@/stores/llmConfig'
 
 const props = withDefaults(defineProps<{ /** 是否显示锁定开关（仅开发端传入 true） */ lockable?: boolean }>(), {
@@ -15,7 +17,7 @@ const props = withDefaults(defineProps<{ /** 是否显示锁定开关（仅开�
 const { t } = useI18n()
 const llmStore = useLlmConfigStore()
 
-/* ---------------- 一键测试连接 ---------------- */
+/* ---------------- 一键测试连接（经网关用真实 Key 探测） ---------------- */
 const testing = ref(false)
 const testResult = ref<{ code: LlmProbeCode; detail?: string } | null>(null)
 
@@ -24,13 +26,22 @@ function probeLabel(code: LlmProbeCode): string {
   return t(key)
 }
 
+/** 网关探测 code → 前端文案 code 映射 */
+const CODE_MAP: Record<string, LlmProbeCode> = {
+  OK: 'OK',
+  NO_KEY: 'NO_KEY',
+  UPSTREAM_ERROR: 'MODEL_ERROR',
+  PROXY_ERROR: 'PROXY_DOWN',
+}
+
 async function testConnection() {
   if (testing.value) return
   testing.value = true
   testResult.value = null
   try {
-    const r = await testLLMConnection()
-    testResult.value = { code: r.code, detail: r.detail }
+    const res = await fetch('/api/vault/probe', { method: 'POST' })
+    const json = (await res.json()) as { ok: boolean; code?: string; detail?: string }
+    testResult.value = { code: CODE_MAP[json.code || ''] || 'PROXY_DOWN', detail: json.detail }
   } catch {
     testResult.value = { code: 'PROXY_DOWN' }
   } finally {
@@ -39,6 +50,8 @@ async function testConnection() {
 }
 
 function onSave() {
+  // 显式触发一次保险箱同步，确保最新配置已推送到网关
+  void llmStore.syncFromVault()
   ElMessage.success(t('portal.agentsCenter.llmSaved'))
 }
 
@@ -56,9 +69,14 @@ const portalLabel = computed(() => {
 
 const updatedText = computed(() => {
   if (!portalLabel.value) return ''
-  const time = llmStore.data.updatedAt ? new Date(llmStore.data.updatedAt).toLocaleString() : ''
+  const time = llmStore.data.updatedAt ? new Date(llmStore.data.updatedAt as string).toLocaleString() : ''
   return `${t('portal.agentsCenter.llmLastUpdate')}：${portalLabel.value}${time ? ' · ' + time : ''}`
 })
+
+/** API Key 输入框占位：已配置时提示保留，未配置时提示输入 */
+const keyPlaceholder = computed(() =>
+  llmStore.data.hasKey ? t('portal.agentsCenter.llmApiKeyKeep') : t('portal.agentsCenter.llmApiKeyPlaceholder'),
+)
 </script>
 
 <template>
@@ -115,7 +133,7 @@ const updatedText = computed(() => {
             :model-value="llmStore.data.apiKey"
             type="password"
             show-password
-            :placeholder="t('portal.agentsCenter.llmApiKeyPlaceholder')"
+            :placeholder="keyPlaceholder"
             @update:model-value="(v: string) => llmStore.setApiKey(v)"
           />
           <el-link

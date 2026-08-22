@@ -47,7 +47,17 @@ const server = http.createServer((req, res) => {
       res.writeHead(405).end('Method Not Allowed')
       return
     }
-    forwardToLlmProxy(req, res)
+    forwardToLlmProxy(req, res, '/llm')
+    return
+  }
+  // 密钥保险箱转发：/api/vault → 网关 /vault（GET 读取 / PUT 保存）
+  if (urlPath === '/api/vault' && (req.method === 'GET' || req.method === 'PUT')) {
+    forwardToLlmProxy(req, res, '/vault')
+    return
+  }
+  // 测试连接转发：/api/vault/probe → 网关 /vault/probe
+  if (urlPath === '/api/vault/probe' && req.method === 'POST') {
+    forwardToLlmProxy(req, res, '/vault/probe')
     return
   }
   // 目录请求 → 构建产物主站
@@ -98,22 +108,26 @@ function serveFile(res, filePath) {
   })
 }
 
-/** 转发 AI 请求到本地 llm-proxy（127.0.0.1:8898） */
-function forwardToLlmProxy(req, res) {
+/** 转发请求到本地 suheng-gateway（127.0.0.1:8898），透传方法/请求头/请求体 */
+function forwardToLlmProxy(req, res, targetPath) {
   const chunks = []
   req.on('data', (c) => chunks.push(c))
   req.on('end', () => {
     const body = Buffer.concat(chunks)
+    // 透传 X-Portal 头（保险箱权限校验依赖）；无该头时网关按运营端只读处理
+    const fwdHeaders = {
+      'Content-Type': req.headers['content-type'] || 'application/json',
+      'Content-Length': body.length,
+    }
+    if (req.headers['x-portal']) fwdHeaders['X-Portal'] = req.headers['x-portal']
+    if (req.headers['authorization']) fwdHeaders['Authorization'] = req.headers['authorization']
     const upReq = http.request(
       {
         host: '127.0.0.1',
         port: LLM_PROXY_PORT,
-        path: '/llm',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': body.length,
-        },
+        path: targetPath,
+        method: req.method,
+        headers: fwdHeaders,
       },
       (upRes) => {
         res.writeHead(upRes.statusCode || 502, upRes.headers)
@@ -121,9 +135,9 @@ function forwardToLlmProxy(req, res) {
       }
     )
     upReq.on('error', () => {
-      // 代理未启动：返回 502，前端自动降级直连
+      // 网关未启动：返回 502，前端自动降级
       res.writeHead(502, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ ok: false, error: 'llm-proxy 未启动' }))
+      res.end(JSON.stringify({ ok: false, error: 'suheng-gateway 未启动' }))
     })
     upReq.end(body)
   })

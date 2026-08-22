@@ -29,3 +29,6 @@ Thumbs.db
 # WorkBuddy 工作区数据
 .workbuddy/
 _tmp_*
+
+# 密钥保险箱（加密落盘，不入库）
+scripts/.vault.json

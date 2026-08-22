@@ -272,6 +272,8 @@ type PortalMessages = {
     llmProvider: string
     llmApiKey: string
     llmApiKeyPlaceholder: string
+    /** 已配置密钥时的占位提示（保留旧密钥，粘贴新值则更新） */
+    llmApiKeyKeep: string
     llmApplyKey: string
     /** AI 服务全局配置权限（开发端最高控制权 / 管理端可编辑 / 运营端只读） */
     llmGlobalTitle: string
@@ -678,6 +680,7 @@ const zh: PortalMessages = {
     llmProvider: '服务商',
     llmApiKey: 'API Key',
     llmApiKeyPlaceholder: '粘贴您的 API Key（免费版即可）',
+    llmApiKeyKeep: '密钥已加密保存，直接粘贴新 Key 可更新',
     llmApplyKey: '免费申请 API Key',
     llmGlobalTitle: 'AI 服务配置（全局共享）',
     llmGlobalDesc: '服务商、API Key、接口地址与模型三端共享，运营端智能体对话框即时生效；开发端拥有最高控制权',
@@ -1080,6 +1083,7 @@ const en: PortalMessages = {
     llmProvider: 'Provider',
     llmApiKey: 'API Key',
     llmApiKeyPlaceholder: 'Paste your API key (free tier works)',
+    llmApiKeyKeep: 'Key is encrypted and saved; paste a new key to update',
     llmApplyKey: 'Get a free API key',
     llmGlobalTitle: 'AI Service Config (Global)',
     llmGlobalDesc: 'Provider, API key, endpoint and model are shared across all portals and take effect in the ops agent dialog instantly; the dev portal holds the highest authority',
@@ -1482,6 +1486,7 @@ const ar: PortalMessages = {
     llmProvider: 'المزود',
     llmApiKey: 'مفتاح API',
     llmApiKeyPlaceholder: 'الصق مفتاح API الخاص بك (النسخة المجانية تكفي)',
+    llmApiKeyKeep: 'تم حفظ المفتاح مشفرًا؛ الصق مفتاحًا جديدًا للتحديث',
     llmApplyKey: 'احصل على مفتاح API مجاني',
     llmGlobalTitle: 'إعدادات خدمة AI (عالمية)',
     llmGlobalDesc: 'المزود ومفتاح API والواجهة والنموذج مشتركة بين البوابات وتسري فورًا في حوار الوكيل ببوابة العمليات؛ بوابة المطورين لها الصلاحية الأعلى',
@@ -1884,6 +1889,7 @@ const vi: PortalMessages = {
     llmProvider: 'Nhà cung cấp',
     llmApiKey: 'API Key',
     llmApiKeyPlaceholder: 'Dán API Key của bạn (bản miễn phí là đủ)',
+    llmApiKeyKeep: 'Key đã được mã hóa; dán key mới để cập nhật',
     llmApplyKey: 'Nhận API Key miễn phí',
     llmGlobalTitle: 'Cấu hình dịch vụ AI (toàn cục)',
     llmGlobalDesc: 'Nhà cung cấp, API Key, endpoint và mô hình dùng chung ba cổng, hiệu lực ngay trong hộp thoại trợ lý ở cổng vận hành; cổng nhà phát triển có quyền cao nhất',
@@ -2286,6 +2292,7 @@ const th: PortalMessages = {
     llmProvider: 'ผู้ให้บริการ',
     llmApiKey: 'API Key',
     llmApiKeyPlaceholder: 'วาง API Key ของคุณ (เวอร์ชันฟรีก็ได้)',
+    llmApiKeyKeep: 'Key ถูกเข้ารหัสแล้ว; วาง key ใหม่เพื่ออัปเดต',
     llmApplyKey: 'รับ API Key ฟรี',
     llmGlobalTitle: 'การตั้งค่าบริการ AI (ทั่วไป)',
     llmGlobalDesc: 'ผู้ให้บริการ API Key endpoint และโมเดลแชร์ร่วมกันทั้งสามพอร์ทัล มีผลทันทีในกล่องแชตของพอร์ทัลปฏิบัติการ; พอร์ทัลนักพัฒนามีอำนาจสูงสุด',
@@ -2688,6 +2695,7 @@ const id: PortalMessages = {
     llmProvider: 'Penyedia',
     llmApiKey: 'API Key',
     llmApiKeyPlaceholder: 'Tempel API Key Anda (versi gratis sudah cukup)',
+    llmApiKeyKeep: 'Key tersimpan terenkripsi; tempel key baru untuk memperbarui',
     llmApplyKey: 'Dapatkan API Key gratis',
     llmGlobalTitle: 'Konfigurasi Layanan AI (Global)',
     llmGlobalDesc: 'Provider, API key, endpoint, dan model dibagi antar portal dan langsung berlaku di dialog agen portal operasi; portal developer memegang kewenangan tertinggi',
@@ -3090,6 +3098,7 @@ const ms: PortalMessages = {
     llmProvider: 'Pembekal',
     llmApiKey: 'API Key',
     llmApiKeyPlaceholder: 'Tampal API Key anda (versi percuma sudah memadai)',
+    llmApiKeyKeep: 'Key telah disimpan secara tersulih; tampal key baharu untuk mengemas kini',
     llmApplyKey: 'Dapatkan API Key percuma',
     llmGlobalTitle: 'Konfigurasi Perkhidmatan AI (Global)',
     llmGlobalDesc: 'Provider, API key, endpoint dan model dikongsi merentas portal dan berkuat kuasa serta-merta dalam dialog ejen portal operasi; portal pembangun memegang kawalan tertinggi',
@@ -3492,6 +3501,7 @@ const fil: PortalMessages = {
     llmProvider: 'Provider',
     llmApiKey: 'API Key',
     llmApiKeyPlaceholder: 'I-paste ang iyong API key (kaya ng free version)',
+    llmApiKeyKeep: 'Naka-save nang naka-encrypt ang key; mag-paste ng bago para i-update',
     llmApplyKey: 'Kumuha ng libreng API key',
     llmGlobalTitle: 'Config ng AI Service (Global)',
     llmGlobalDesc: 'Provider, API key, endpoint at modelo ay shared sa lahat ng portal, agad magkakabisa sa agent dialog ng ops portal; ang dev portal ang may pinakamataas na kontrol',
