@@ -15,6 +15,9 @@
  *   GET  /kb/stats         知识库统计
  *   POST /kb/ingest        导入文档（X-Portal: dev）
  *   POST /kb/embed/pending 补算缺失向量（X-Portal: dev）
+ *   POST /llm/agent        Function Calling 智能体循环（阶段3：tools + ≤3轮工具调用）
+ *   GET  /tools/list       已注册工具清单（调试面板）
+ *   POST /tools/invoke     单工具直接调用（X-Portal: dev）
  *
  * 用法：
  *   node scripts/llm-proxy.cjs                       # 默认端口 8898
@@ -30,6 +33,7 @@ const fs = require('fs')
 
 const vault = require('./gateway/vault.cjs')
 const kb = require('./gateway/kb.cjs')
+const tools = require('./gateway/tools/index.cjs')
 
 const HOST = process.env.HOST || '127.0.0.1'
 const PORT = Number(process.env.PORT) || 8898
@@ -114,6 +118,123 @@ function sendJson(res, status, obj, extraHeaders) {
     ...extraHeaders,
   })
   res.end(JSON.stringify(obj))
+}
+
+/* ============== Function Calling 智能体循环（阶段3） ============== */
+
+const TOOL_MAX_ROUNDS = 3
+
+/**
+ * 智能体循环（网关侧执行，密钥不出网关）：
+ *   body: { domain, question, history: [{role,content}], system?（前端已拼好 RAG 上下文） }
+ *   返回: { ok, answer, tool_trace: [{name, args, provider, latency_ms, ok}] }
+ */
+async function agentLoop(body) {
+  const v = vault.loadVault()
+  const endpoint = v.endpoint
+  const apiKey = vault.llmApiKey()
+  const model = v.model || 'deepseek-chat'
+  if (!endpoint || !apiKey) {
+    return { ok: false, error: 'no apiKey available (vault empty or not configured)' }
+  }
+  if (v.provider === 'coze') {
+    return { ok: false, error: 'coze provider does not support function calling' }
+  }
+
+  const domain = ['tcm', 'ecom', 'domestic', 'general'].includes(body.domain) ? body.domain : 'general'
+  const question = String(body.question || '').trim()
+  if (!question) return { ok: false, error: 'missing question' }
+
+  const system =
+    typeof body.system === 'string' && body.system.trim()
+      ? body.system
+      : '你是素衡OS的AI智能体。请依据本系统内置数据库回答问题，内容专业、条理清晰、语温和。如数据不足请说明。需要实时数据时可调用工具查询。'
+
+  const messages = [
+    { role: 'system', content: system },
+    ...(Array.isArray(body.history) ? body.history : []),
+    { role: 'user', content: question },
+  ]
+  const llmTools = tools.toolsForDomain(domain)
+
+  const toolTrace = []
+  for (let round = 0; round < TOOL_MAX_ROUNDS; round++) {
+    const payload = {
+      model,
+      messages,
+      tools: llmTools,
+      tool_choice: 'auto',
+      temperature: 0.7,
+      max_tokens: 1024,
+      stream: false,
+    }
+    const upstream = await forward({ endpoint, apiKey, payload })
+    if (upstream.status !== 200) {
+      return { ok: false, error: `upstream ${upstream.status}: ${upstream.body.slice(0, 300)}`, tool_trace: toolTrace }
+    }
+    let data
+    try {
+      data = JSON.parse(upstream.body)
+    } catch {
+      return { ok: false, error: 'upstream response parse error', tool_trace: toolTrace }
+    }
+    const msg = data && data.choices && data.choices[0] && data.choices[0].message
+    if (!msg) {
+      return { ok: false, error: 'upstream response missing message', tool_trace: toolTrace }
+    }
+    const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls : []
+    if (!calls.length) {
+      const answer = typeof msg.content === 'string' ? msg.content.trim() : ''
+      return { ok: true, answer, tool_trace: toolTrace }
+    }
+    // 记录 assistant 的 tool_calls 消息后逐个执行
+    messages.push({ role: 'assistant', content: msg.content || '', tool_calls: calls })
+    for (const tc of calls) {
+      const fname = tc && tc.function && tc.function.name
+      let args = {}
+      try {
+        args = JSON.parse((tc.function && tc.function.arguments) || '{}')
+      } catch {
+        args = {}
+      }
+      const r = await tools.invokeTool(fname, args)
+      toolTrace.push({
+        name: fname,
+        args,
+        provider: r.trace.provider,
+        latency_ms: r.trace.latency_ms,
+        ok: r.ok,
+      })
+      messages.push({
+        role: 'tool',
+        tool_call_id: tc.id,
+        content: JSON.stringify(r.ok ? r.data : { error: r.error }).slice(0, 8000),
+      })
+    }
+  }
+  // 轮次用尽：最后不带 tools 再要一次总结性回答
+  const summary = await forward({
+    endpoint,
+    apiKey,
+    payload: {
+      model,
+      messages,
+      temperature: 0.7,
+      max_tokens: 1024,
+      stream: false,
+    },
+  })
+  let finalAnswer = ''
+  try {
+    finalAnswer = (JSON.parse(summary.body).choices?.[0]?.message?.content || '').trim()
+  } catch {
+    finalAnswer = ''
+  }
+  return {
+    ok: !!finalAnswer,
+    answer: finalAnswer || '（工具调用轮次已达上限，未能生成最终答案）',
+    tool_trace: toolTrace,
+  }
 }
 
 /* ============== HTTP 路由 ============== */
@@ -298,12 +419,69 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
-  sendJson(res, 404, { error: 'not found; endpoints: GET /health, GET/PUT /vault, POST /vault/probe, POST /llm, POST /kb/search, GET /kb/stats, POST /kb/ingest, POST /kb/embed/pending' })
+  /* ============== Function Calling 智能体（阶段3） ============== */
+
+  // 智能体循环：注入域工具 → LLM → tool_calls 本地执行 → 结果回传 → 最终答案（≤3轮）
+  if (req.method === 'POST' && req.url === '/llm/agent') {
+    try {
+      const raw = await readBody(req)
+      let body
+      try {
+        body = JSON.parse(raw)
+      } catch {
+        sendJson(res, 400, { ok: false, error: 'invalid json body' })
+        return
+      }
+      const result = await agentLoop(body || {})
+      sendJson(res, result.ok ? 200 : 400, result)
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: String((err && err.message) || err) })
+    }
+    return
+  }
+
+  // 工具清单（调试面板用）
+  if (req.method === 'GET' && req.url === '/tools/list') {
+    sendJson(res, 200, tools.listTools())
+    return
+  }
+
+  // 单工具直接调用（仅开发端，调试用）
+  if (req.method === 'POST' && req.url === '/tools/invoke') {
+    const portal = (req.headers['x-portal'] || 'ops').toString()
+    if (portal !== 'dev') {
+      sendJson(res, 403, { ok: false, error: '工具调试仅开发端可用' })
+      return
+    }
+    try {
+      const raw = await readBody(req)
+      let body
+      try {
+        body = JSON.parse(raw)
+      } catch {
+        sendJson(res, 400, { ok: false, error: 'invalid json body' })
+        return
+      }
+      const { name, args, arguments: toolArgs } = body || {}
+      if (!name) {
+        sendJson(res, 400, { ok: false, error: 'missing tool name' })
+        return
+      }
+      const result = await tools.invokeTool(name, args || toolArgs || {})
+      sendJson(res, result.ok ? 200 : 400, result)
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: String((err && err.message) || err) })
+    }
+    return
+  }
+
+  sendJson(res, 404, { error: 'not found; endpoints: GET /health, GET/PUT /vault, POST /vault/probe, POST /llm, POST /llm/agent, POST /kb/search, GET /kb/stats, POST /kb/ingest, POST /kb/embed/pending, GET /tools/list, POST /tools/invoke' })
 })
 
 server.listen(PORT, HOST, () => {
   console.log(`[suheng-gateway] 素衡OS AI 网关已启动  http://${HOST}:${PORT}`)
   console.log(`[suheng-gateway] LLM 转发 POST /llm  |  密钥保险箱 GET/PUT /vault  |  知识库 POST /kb/search`)
+  console.log(`[suheng-gateway] 智能体循环 POST /llm/agent  |  工具 GET /tools/list POST /tools/invoke` + (tools.listTools().ali1688Configured ? '（1688 已配置）' : '（L0 本地数据）'))
   const s = kb.stats()
   console.log(`[suheng-gateway] 知识库: ${s.docs} 文档 / ${s.chunks} 切片 / ${s.embedded} 向量${s.vectorReady ? '（向量检索就绪）' : '（BM25 检索）'}`)
   if (!process.env.SUHENG_VAULT_KEY) {

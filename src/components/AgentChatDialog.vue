@@ -10,6 +10,7 @@ import { askAI, enhanceQuestion, LLM_PROVIDERS, testLLMConnection, type LlmProbe
 import { useLlmConfigStore } from '@/stores/llmConfig'
 import type { Domain } from '@/services/knowledge'
 import type { KbHit } from '@/services/kb'
+import type { ToolTraceItem } from '@/services/tools'
 
 interface ChatMsg {
   role: 'user' | 'assistant'
@@ -17,6 +18,8 @@ interface ChatMsg {
   source?: 'llm' | 'local'
   /** 知识库检索引用（RAG 命中时展示来源标注） */
   citations?: KbHit[]
+  /** 工具调用轨迹（Function Calling 命中时展示可折叠轨迹） */
+  toolTrace?: ToolTraceItem[]
 }
 
 const props = defineProps<{ modelValue: boolean; domain: Domain }>()
@@ -200,8 +203,26 @@ async function onAiSmartClick() {
   }
 }
 
-async function send(text?: string) {
-  const q = (text ?? input.value).trim()
+/* ---------------- 工具调用轨迹（Function Calling） ---------------- */
+
+const TOOL_LABEL_KEYS: Record<string, string> = {
+  search_supply_products: 'portal.agentsCenter.toolNameSupplySearch',
+  get_supplier_info: 'portal.agentsCenter.toolNameSupplierInfo',
+  get_price_trend: 'portal.agentsCenter.toolNamePriceTrend',
+  search_tcm_kb: 'portal.agentsCenter.toolNameTcmKb',
+}
+
+function toolLabel(name: string): string {
+  const key = TOOL_LABEL_KEYS[name]
+  return key ? t(key) : name
+}
+
+/** 轨迹中含本地演示数据（local-fallback）时提示可接入 1688 连接器获取实时数据 */
+function isLocalData(trace?: ToolTraceItem[]): boolean {
+  return !!trace?.some((x) => x.provider === 'local-fallback')
+}
+
+async function send(text?: string) {  const q = (text ?? input.value).trim()
   if (!q || loading.value) return
   messages.value.push({ role: 'user', content: q })
   input.value = ''
@@ -212,7 +233,13 @@ async function send(text?: string) {
       .slice(0, -1)
       .map((m) => ({ role: m.role, content: m.content }))
     const res = await askAI(currentDomain.value, q, history)
-    messages.value.push({ role: 'assistant', content: res.answer, source: res.source, citations: res.citations })
+    messages.value.push({
+      role: 'assistant',
+      content: res.answer,
+      source: res.source,
+      citations: res.citations,
+      toolTrace: res.toolTrace,
+    })
   } finally {
     loading.value = false
     scrollBottom()
@@ -429,6 +456,24 @@ function onVoiceClick() {
                 </template>
                 <span class="ac-cit-chip">[{{ i + 1 }}] {{ c.doc_title }}</span>
               </el-tooltip>
+            </div>
+            <!-- 工具调用轨迹（Function Calling 命中时展示） -->
+            <div v-if="m.toolTrace?.length" class="ac-tools">
+              <div class="ac-tools-head">
+                <span class="ac-tools-label">{{ t('portal.agentsCenter.toolTrace') }}</span>
+                <span
+                  v-for="(x, ti) in m.toolTrace"
+                  :key="ti"
+                  class="ac-tool-chip"
+                  :class="{ fail: !x.ok }"
+                >
+                  {{ toolLabel(x.name) }} · {{ x.latency_ms }}ms
+                </span>
+              </div>
+              <!-- 本地演示数据提示（阶段3b：1688 连接器引导） -->
+              <div v-if="isLocalData(m.toolTrace)" class="ac-tools-hint">
+                {{ t('portal.agentsCenter.toolLocalHint') }}
+              </div>
             </div>
           </div>
         </div>
@@ -695,6 +740,45 @@ function onVoiceClick() {
   max-width: 340px;
   line-height: 1.6;
   font-size: 12px;
+}
+
+/* 工具调用轨迹（Function Calling） */
+.ac-tools {
+  margin-top: 6px;
+}
+.ac-tools-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.ac-tools-label {
+  font-size: 10.5px;
+  color: var(--color-text-secondary, #909399);
+}
+.ac-tool-chip {
+  font-size: 10.5px;
+  color: #8a5fbf;
+  background: #f4effa;
+  border: 1px solid rgba(138, 95, 191, 0.18);
+  border-radius: 999px;
+  padding: 1px 8px;
+  cursor: default;
+}
+.ac-tool-chip.fail {
+  color: #c05f3a;
+  background: #faf0ea;
+  border-color: rgba(192, 95, 58, 0.2);
+}
+.ac-tools-hint {
+  margin-top: 4px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: #b8860b;
+  background: #fdf8e9;
+  border: 1px dashed rgba(184, 134, 11, 0.25);
+  border-radius: 6px;
+  padding: 4px 8px;
 }
 
 /* 快速提问 */

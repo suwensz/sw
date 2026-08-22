@@ -60,6 +60,24 @@ const server = http.createServer((req, res) => {
     forwardToLlmProxy(req, res, '/vault/probe')
     return
   }
+  // 智能体循环转发：/api/llm/agent → 网关 /llm/agent（阶段3 Function Calling）
+  if (urlPath === '/api/llm/agent' && req.method === 'POST') {
+    forwardToLlmProxy(req, res, '/llm/agent')
+    return
+  }
+  // 工具转发：/api/tools/* → 网关 /tools/*（阶段3）
+  if (urlPath.startsWith('/api/tools/')) {
+    const gwPath = urlPath.slice(4) // 去掉 /api 前缀 → /tools/...
+    const allowed =
+      (req.method === 'GET' && gwPath === '/tools/list') ||
+      (req.method === 'POST' && gwPath === '/tools/invoke')
+    if (!allowed) {
+      res.writeHead(405).end('Method Not Allowed')
+      return
+    }
+    forwardToLlmProxy(req, res, gwPath)
+    return
+  }
   // 知识库转发：/api/kb/* → 网关 /kb/*（阶段2 RAG）
   if (urlPath.startsWith('/api/kb/')) {
     const gwPath = urlPath.slice(4) // 去掉 /api 前缀 → /kb/...

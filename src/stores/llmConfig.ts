@@ -85,6 +85,8 @@ interface LlmConfigData {
     endpoint: string
     model: string
   }
+  /** 工具调用开关（阶段3 Function Calling）：关闭后对话不带 tools，行为与纯 LLM 一致 */
+  toolsEnabled?: boolean
   /** 配置锁定：锁定后管理端不可修改，仅开发端（最高控制权）可解锁 */
   locked?: boolean
   /** 最近一次修改来源门户 */
@@ -110,6 +112,7 @@ function loadConfig(): LlmConfigData {
           ...parsed,
           botId: parsed.botId || DEFAULT_BOT_ID,
           locked: !!parsed.locked,
+          toolsEnabled: parsed.toolsEnabled !== false,
           embedding: parsed.embedding || {
             provider: 'siliconflow' as const,
             apiKey: '',
@@ -131,6 +134,7 @@ function loadConfig(): LlmConfigData {
     endpoint: preset.endpoint,
     model: preset.model,
     botId: DEFAULT_BOT_ID,
+    toolsEnabled: true,
     embedding: {
       provider: 'siliconflow',
       apiKey: '',
@@ -345,6 +349,12 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
     persist()
   }
 
+  /** 工具开关（本地 UI 行为标志，仅存 localStorage） */
+  function setToolsEnabled(v: boolean) {
+    data.value.toolsEnabled = v
+    writeLocal()
+  }
+
   function reset() {
     const preset = LLM_PROVIDERS[0]
     data.value = {
@@ -354,6 +364,7 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
       endpoint: preset.endpoint,
       model: preset.model,
       botId: DEFAULT_BOT_ID,
+      toolsEnabled: data.value.toolsEnabled !== false,
       embedding: {
         provider: 'siliconflow',
         apiKey: '',
@@ -386,6 +397,7 @@ export const useLlmConfigStore = defineStore('llmConfig', () => {
     setEmbeddingProvider,
     setEmbeddingApiKey,
     setEmbeddingModel,
+    setToolsEnabled,
     reset,
   }
 })

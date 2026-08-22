@@ -11,6 +11,7 @@
 import { useLlmConfigStore, LLM_PROVIDERS } from '@/stores/llmConfig'
 import { localAnswer, type Domain } from '@/services/knowledge'
 import { searchKb, type KbHit } from '@/services/kb'
+import { askAgent, type ToolTraceItem } from '@/services/tools'
 
 /** 本地代理地址：同源 /api/llm（推荐），可用 VITE_LLM_PROXY 覆盖 */
 const PROXY_URL = (import.meta.env.VITE_LLM_PROXY as string) || '/api/llm'
@@ -72,6 +73,8 @@ export interface AiResult {
   source: 'llm' | 'local'
   /** 知识库检索引用（RAG 命中时随回答返回，前端渲染来源标注） */
   citations?: KbHit[]
+  /** 工具调用轨迹（Function Calling 命中时随回答返回，前端渲染可折叠轨迹） */
+  toolTrace?: ToolTraceItem[]
 }
 
 /** 各域系统提示词：要求 AI 依据素衡本系统内置数据库回答 */
@@ -380,7 +383,7 @@ function buildRagContext(hits: KbHit[]): string {
   return `\n\n【知识库检索结果】请优先依据以下资料回答；引用资料时用 [编号] 标注来源；若资料与问题无关可忽略：\n${refs}`
 }
 
-/** 统一 AI 问答入口：知识库检索增强 → 云端优先，本地知识库兜底 */
+/** 统一 AI 问答入口：知识库检索增强 → 智能体循环（Function Calling）→ 云端 → 本地兜底 */
 export async function askAI(
   domain: Domain,
   question: string,
@@ -389,6 +392,17 @@ export async function askAI(
   // RAG：先检索知识库（静默失败，不可用时退化为纯 LLM 回答）
   const rag = await searchKb(domain, question, 5)
   const ragContext = rag && rag.hits.length ? buildRagContext(rag.hits) : ''
+  const system = buildSystemPrompt(domain) + ragContext
+
+  // 智能体链路（阶段3）：OpenAI 兼容服务商 + 工具开关开启时走网关 Function Calling 循环
+  const cfg = useLlmConfigStore()
+  if (cfg.configured && cfg.data.provider !== 'coze' && cfg.data.toolsEnabled !== false) {
+    const agent = await askAgent(domain, question, history, system)
+    if (agent) {
+      return { answer: agent.answer, source: 'llm', citations: rag?.hits, toolTrace: agent.tool_trace }
+    }
+    // 网关智能体链路不可用 → 落回普通 askLLM
+  }
 
   const llm = await askLLM(domain, question, history, ragContext)
   if (llm && llm.trim()) {

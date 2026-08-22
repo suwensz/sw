@@ -8,6 +8,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { LLM_PROVIDERS, type LlmProbeCode } from '@/services/llm'
+import { listTools, invokeTool, type ToolMeta } from '@/services/tools'
 import { useLlmConfigStore } from '@/stores/llmConfig'
 
 const props = withDefaults(defineProps<{ /** 是否显示锁定开关（仅开发端传入 true） */ lockable?: boolean }>(), {
@@ -110,7 +111,57 @@ async function loadKbStats() {
   }
 }
 loadKbStats()
-</script>
+
+/* ---------------- 智能体工具（阶段3 Function Calling） ---------------- */
+
+const toolsList = ref<ToolMeta[] | null>(null)
+const ali1688Configured = ref(false)
+/** 各工具的试运行参数（JSON 文本） */
+const toolArgs = ref<Record<string, string>>({})
+const toolRunning = ref('')
+const toolResult = ref<{ name: string; ok: boolean; text: string } | null>(null)
+
+/** 各工具的默认试运行参数模板 */
+const TOOL_ARG_TEMPLATES: Record<string, string> = {
+  search_supply_products: '{\n  "keywords": "艾灸条",\n  "moq_max": 500\n}',
+  get_supplier_info: '{\n  "company_name": "艾灸条"\n}',
+  get_price_trend: '{\n  "keywords": "枸杞",\n  "range_days": 30\n}',
+  search_tcm_kb: '{\n  "query": "桂枝汤的组成"\n}',
+}
+
+async function loadTools() {
+  const r = await listTools()
+  if (!r) return
+  toolsList.value = r.tools
+  ali1688Configured.value = r.ali1688Configured
+  for (const t of r.tools) {
+    toolArgs.value[t.name] = TOOL_ARG_TEMPLATES[t.name] || '{}'
+  }
+}
+loadTools()
+
+async function runTool(name: string) {
+  if (toolRunning.value) return
+  let args: Record<string, unknown>
+  try {
+    args = toolArgs.value[name] ? JSON.parse(toolArgs.value[name]) : {}
+  } catch {
+    ElMessage.error(t('portal.agentsCenter.toolArgsInvalid'))
+    return
+  }
+  toolRunning.value = name
+  toolResult.value = null
+  try {
+    const r = await invokeTool(name, args)
+    toolResult.value = {
+      name,
+      ok: !!r?.ok,
+      text: r ? (r.ok ? JSON.stringify(r.data, null, 2) : String(r.error || 'failed')) : t('portal.agentsCenter.toolGatewayDown'),
+    }
+  } finally {
+    toolRunning.value = ''
+  }
+}</script>
 
 <template>
   <div class="llm-admin">
@@ -226,6 +277,47 @@ loadKbStats()
         </div>
       </el-form-item>
 
+      <!-- 智能体工具（阶段3 Function Calling） -->
+      <el-divider content-position="left">{{ t('portal.agentsCenter.llmToolsTitle') }}</el-divider>
+      <div class="llm-embed-desc">
+        {{ t('portal.agentsCenter.llmToolsDesc') }}
+        <el-tag size="small" :type="ali1688Configured ? 'success' : 'info'" effect="plain">
+          {{ ali1688Configured ? t('portal.agentsCenter.toolProvider1688') : t('portal.agentsCenter.toolProviderLocal') }}
+        </el-tag>
+      </div>
+      <el-form-item :label="t('portal.agentsCenter.llmToolsToggle')">
+        <el-switch
+          :model-value="llmStore.data.toolsEnabled !== false"
+          :disabled="!llmStore.canEdit || llmStore.data.provider === 'coze'"
+          @change="(v: string | number | boolean) => llmStore.setToolsEnabled(!!v)"
+        />
+        <span class="llm-tools-hint">
+          {{ llmStore.data.provider === 'coze' ? t('portal.agentsCenter.toolCozeUnsupported') : t('portal.agentsCenter.llmToolsToggleHint') }}
+        </span>
+      </el-form-item>
+      <!-- 工具调试（仅开发端） -->
+      <div v-if="llmStore.portal === 'dev' && toolsList?.length" class="llm-tools-debug">
+        <div v-for="tl in toolsList" :key="tl.name" class="llm-tool-item">
+          <div class="llm-tool-head">
+            <span class="llm-tool-name">{{ tl.name }}</span>
+            <span class="llm-tool-domains">{{ tl.domains.join(' / ') }}</span>
+            <el-button size="small" text type="primary" :loading="toolRunning === tl.name" @click="runTool(tl.name)">
+              {{ t('portal.agentsCenter.toolRun') }}
+            </el-button>
+          </div>
+          <div class="llm-tool-desc">{{ tl.description }}</div>
+          <el-input
+            v-model="toolArgs[tl.name]"
+            type="textarea"
+            :rows="3"
+            class="llm-tool-args"
+          />
+          <div v-if="toolResult?.name === tl.name" class="llm-tool-result" :class="toolResult.ok ? 'ok' : 'fail'">
+            <pre>{{ toolResult.text.slice(0, 2000) }}</pre>
+          </div>
+        </div>
+      </div>
+
       <div class="llm-admin-actions">
         <el-button v-if="llmStore.canEdit" type="primary" @click="onSave">
           {{ t('portal.agentsCenter.llmSave') }}
@@ -324,6 +416,70 @@ loadKbStats()
   margin-bottom: 12px;
   font-size: 12.5px;
   color: var(--color-text-secondary, #909399);
+}
+/* 智能体工具调试 */
+.llm-tools-hint {
+  margin-left: 10px;
+  font-size: 11.5px;
+  color: var(--color-text-secondary, #909399);
+}
+.llm-tools-debug {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.llm-tool-item {
+  border: 1px solid var(--color-border, #e4ebe7);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.llm-tool-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.llm-tool-name {
+  font-family: monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #8a5fbf;
+}
+.llm-tool-domains {
+  flex: 1;
+  font-size: 11px;
+  color: var(--color-text-secondary, #909399);
+}
+.llm-tool-desc {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary, #909399);
+}
+.llm-tool-args :deep(textarea) {
+  font-family: monospace;
+  font-size: 12px;
+}
+.llm-tool-result {
+  margin-top: 8px;
+  border-radius: 6px;
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.llm-tool-result pre {
+  margin: 0;
+  font-size: 11.5px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.llm-tool-result.ok {
+  background: #eef7f2;
+  border: 1px solid #d5e9e0;
+}
+.llm-tool-result.fail {
+  background: #fdf2ee;
+  border: 1px solid #f3ddd2;
 }
 .llm-admin-actions {
   display: flex;
