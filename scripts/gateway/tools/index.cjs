@@ -11,8 +11,8 @@
  *
  * 域 → 工具挂载（设计文档 §5）：
  *   tcm      : search_tcm_kb
- *   ecom     : search_supply_products, get_supplier_info, get_price_trend
- *   domestic : search_supply_products
+ *   ecom     : search_supply_products, get_supplier_info, get_price_trend, search_system_kb
+ *   domestic : search_supply_products, search_system_kb
  */
 const local = require('./local-data.cjs')
 const ali = require('./ali1688.cjs')
@@ -91,14 +91,40 @@ const TOOL_SCHEMAS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'search_system_kb',
+      description:
+        '检索素衡OS系统内置数据库（在售商品价格/库存/评分、店铺、订单、供应链、物流、情报等业务数据）。凡涉及系统内具体商品或业务档案的问题，应优先调用本工具查证',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '检索词，如 长白山人参切片 价格、艾灸条 采购' },
+          domain: {
+            type: 'string',
+            enum: ['ecom', 'domestic'],
+            description: '限定业务域（ecom=跨境电商，domestic=国内电商），不传则两域都查',
+          },
+        },
+        required: ['query'],
+      },
+    },
+  },
 ]
 
 /** 各域挂载的工具名（general = 全量） */
 const DOMAIN_TOOLS = {
   tcm: ['search_tcm_kb'],
-  ecom: ['search_supply_products', 'get_supplier_info', 'get_price_trend'],
-  domestic: ['search_supply_products'],
-  general: ['search_supply_products', 'get_supplier_info', 'get_price_trend', 'search_tcm_kb'],
+  ecom: ['search_supply_products', 'get_supplier_info', 'get_price_trend', 'search_system_kb'],
+  domestic: ['search_supply_products', 'search_system_kb'],
+  general: [
+    'search_supply_products',
+    'get_supplier_info',
+    'get_price_trend',
+    'search_tcm_kb',
+    'search_system_kb',
+  ],
 }
 
 /** 按域返回 tools schema 列表（透传给 LLM） */
@@ -163,6 +189,17 @@ const IMPLEMENTATIONS = {
       ...(args.doc_type ? { filters: { doc_type: [args.doc_type] } } : {}),
     })
     return { data: result, provider: 'suheng-kb' }
+  },
+
+  async search_system_kb(args) {
+    const query = String(args.query || '')
+    const topK = 5
+    const domains = args.domain ? [args.domain] : ['ecom', 'domestic']
+    const results = await Promise.all(
+      domains.map((domain) => kb.search({ query, domain, topK })),
+    )
+    const hits = results.flatMap((r) => r.hits || []).sort((a, b) => b.score - a.score).slice(0, topK)
+    return { data: { hits, total: hits.length }, provider: 'suheng-kb' }
   },
 }
 
