@@ -8,14 +8,20 @@
  * 实现分级：
  *   L0 本地实现（local-data.cjs，零外部依赖，始终可用）
  *   L1 1688 开放平台（ali1688.cjs，vault keys.ali1688 配置后启用；失败自动降级 L0）
+ *   L2 素问Tokens分发器（suwensz.cjs，vault keys.suwensz 配置后启用；统一代理 1688/淘宝/京东/亚马逊，
+ *      401 key 失效不降级，直接提示用户换 key）
  *
- * 域 → 工具挂载（设计文档 §5）：
+ * 域 → 工具挂载（设计文档 §5 / api-integration-design.md §3）：
  *   tcm      : search_tcm_kb
- *   ecom     : search_supply_products, get_supplier_info, get_price_trend, search_system_kb
- *   domestic : search_supply_products, search_system_kb
+ *   ecom     : search_supply_products, get_supplier_info, get_price_trend, search_platform_products,
+ *              optimize_product_image, generate_product_video, search_system_kb
+ *   domestic : search_supply_products, search_platform_products, optimize_product_image,
+ *              generate_product_video, search_system_kb
  */
 const local = require('./local-data.cjs')
 const ali = require('./ali1688.cjs')
+const suwensz = require('./suwensz.cjs')
+const vault = require('../vault.cjs')
 const kb = require('../kb.cjs')
 
 /* ============== 工具 Schema（OpenAI Function Calling 格式） ============== */
@@ -111,17 +117,103 @@ const TOOL_SCHEMAS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'search_platform_products',
+      description:
+        '跨平台电商商品搜索（素问Tokens分发器统一代理）：一次接口查询 1688/淘宝/京东/亚马逊 的商品，返回标题、价格、销量、店铺与商品链接',
+      parameters: {
+        type: 'object',
+        properties: {
+          platform: {
+            type: 'string',
+            enum: ['1688', 'taobao', 'jd', 'amazon'],
+            description: '目标电商平台',
+          },
+          keywords: { type: 'string', description: '商品关键词，如 艾灸条、筋膜枪、wireless earbuds' },
+          price_min: { type: 'number', description: '可接受的最低价（平台计价币种）' },
+          price_max: { type: 'number', description: '可接受的最高价（平台计价币种）' },
+          page: { type: 'integer', description: '页码，默认 1' },
+          page_size: { type: 'integer', description: '每页条数，默认 10' },
+        },
+        required: ['platform', 'keywords'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'optimize_product_image',
+      description:
+        '商品图片优化：主图精修(mode=main)、白底图(mode=white_bg)、多语言文案图(mode=copywriting)。需先在密钥保险箱配置 imageOpt 槽位（默认可灵AI）',
+      parameters: {
+        type: 'object',
+        properties: {
+          image_url: { type: 'string', description: '原图 URL（必填，公网可访问）' },
+          mode: {
+            type: 'string',
+            enum: ['main', 'white_bg', 'copywriting'],
+            description: '优化模式：main=主图精修 / white_bg=白底图 / copywriting=多语言文案图',
+          },
+          language: {
+            type: 'string',
+            enum: ['zh', 'en', 'ja', 'de', 'fr', 'es', 'ru'],
+            description: '文案图语言（mode=copywriting 时生效），默认 zh',
+          },
+          prompt: { type: 'string', description: '额外优化要求，如 突出木质纹理、暖色调、留白排版' },
+        },
+        required: ['image_url', 'mode'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'generate_product_video',
+      description:
+        '商品短视频自动生成（图生视频，默认可灵AI）：以上架商品图/标题生成 3~15 秒展示视频。需先在密钥保险箱配置 videoGen 槽位',
+      parameters: {
+        type: 'object',
+        properties: {
+          image_url: { type: 'string', description: '商品主图 URL（与 product_title 至少传一项）' },
+          product_title: { type: 'string', description: '商品标题/卖点文案（与 image_url 至少传一项）' },
+          duration_seconds: { type: 'integer', minimum: 3, maximum: 15, description: '时长（秒），默认 5' },
+          ratio: { type: 'string', enum: ['16:9', '9:16', '1:1'], description: '画幅比例，默认 16:9' },
+          script: { type: 'string', description: '分镜/口播脚本，如 开场产品特写→使用场景→结尾促销信息' },
+        },
+        required: [],
+      },
+    },
+  },
 ]
 
 /** 各域挂载的工具名（general = 全量） */
 const DOMAIN_TOOLS = {
   tcm: ['search_tcm_kb'],
-  ecom: ['search_supply_products', 'get_supplier_info', 'get_price_trend', 'search_system_kb'],
-  domestic: ['search_supply_products', 'search_system_kb'],
+  ecom: [
+    'search_supply_products',
+    'get_supplier_info',
+    'get_price_trend',
+    'search_platform_products',
+    'optimize_product_image',
+    'generate_product_video',
+    'search_system_kb',
+  ],
+  domestic: [
+    'search_supply_products',
+    'search_platform_products',
+    'optimize_product_image',
+    'generate_product_video',
+    'search_system_kb',
+  ],
   general: [
     'search_supply_products',
     'get_supplier_info',
     'get_price_trend',
+    'search_platform_products',
+    'optimize_product_image',
+    'generate_product_video',
     'search_tcm_kb',
     'search_system_kb',
   ],
@@ -133,11 +225,15 @@ function toolsForDomain(domain) {
   return TOOL_SCHEMAS.filter((t) => names.includes(t.function.name))
 }
 
-/** 工具清单（调试面板用）：schema + 说明 */
+/** 工具清单（调试面板用）：schema + 说明 + 各外部通道配置状态位 */
 function listTools() {
+  const v = vault.loadVault()
   return {
     ok: true,
     ali1688Configured: !!ali.aliConfig(),
+    suwenszConfigured: !!suwensz.suwenszConfig(),
+    imageOptConfigured: !!(v.keys.imageOpt && v.keys.imageOpt.apiKey),
+    videoGenConfigured: !!(v.keys.videoGen && v.keys.videoGen.apiKey),
     tools: TOOL_SCHEMAS.map((t) => ({
       name: t.function.name,
       description: t.function.description,
@@ -179,6 +275,103 @@ const IMPLEMENTATIONS = {
 
   async get_price_trend(args) {
     return { data: local.priceTrend(args), provider: 'local-fallback' }
+  },
+
+  async search_platform_products(args) {
+    // L2：素问Tokens分发器（统一代理 1688/淘宝/京东/亚马逊）
+    if (suwensz.suwenszConfig()) {
+      try {
+        const r = await suwensz.searchProducts(args.platform, args.keywords, {
+          ...(args.price_min != null ? { price_min: args.price_min } : {}),
+          ...(args.price_max != null ? { price_max: args.price_max } : {}),
+          ...(args.page != null ? { page: args.page } : {}),
+          ...(args.page_size != null ? { page_size: args.page_size } : {}),
+        })
+        if (r) return { data: r, provider: 'suwensz-proxy' }
+      } catch (err) {
+        // key 失效不静默降级：把换 key 指引直接返回给用户（设计文档 §4.2）
+        if (err && err.code === 'KEY_INVALID') {
+          return { data: { status: 'key_invalid', guidance: err.message }, provider: 'suwensz-proxy' }
+        }
+        /* 其他错误降级 L1/L0 */
+      }
+    }
+    // L1：1688 官方直连（仅 platform=1688 且已配置）
+    if (args.platform === '1688' && ali.aliConfig()) {
+      try {
+        const r = await ali.callApi('alibaba.icbu.product.search', {
+          keywords: args.keywords,
+          ...(args.price_min != null ? { price_min: String(args.price_min) } : {}),
+          ...(args.price_max != null ? { price_max: String(args.price_max) } : {}),
+        })
+        if (r && r.result) return { data: r.result, provider: '1688-open' }
+      } catch {
+        /* 降级 L0 */
+      }
+    }
+    // L0：本地兜底（附 degraded 标记，提示数据非实时行情）
+    return {
+      data: { ...local.searchProducts(args), degraded: true, platform: args.platform },
+      provider: 'local-fallback',
+    }
+  },
+
+  async optimize_product_image(args) {
+    const v = vault.loadVault()
+    const img = v.keys.imageOpt
+    // L2：素问分发器 OpenAI 兼容图片端点（若分发器提供 /v1/images/generations）
+    if (suwensz.suwenszConfig()) {
+      try {
+        // TODO(P1)：分发器图片端点路径确认后，可切换为专用图片生成调用
+        const r = await suwensz.callApi(
+          '/v1/images/generations',
+          {
+            model: img && img.provider ? img.provider + '-image' : 'default',
+            prompt: `商品图片优化 mode=${args.mode} language=${args.language || 'zh'} ${args.prompt || ''} 原图：${args.image_url}`,
+            n: 1,
+          },
+          { method: 'POST' },
+        )
+        if (r) return { data: r, provider: 'suwensz-proxy' }
+      } catch (err) {
+        if (err && err.code === 'KEY_INVALID') {
+          return { data: { status: 'key_invalid', guidance: err.message }, provider: 'suwensz-proxy' }
+        }
+        /* 降级到骨架响应 */
+      }
+    }
+    // 骨架：可灵AI（WorkBuddy 内置 kling-ai-plugin）直连管线（P1 接入，先返回结构化待接入提示）
+    // TODO(P1)：kling 图生图 —— 提交任务 → 轮询 → 返回结果图 URL
+    return {
+      data: {
+        status: 'pending',
+        message:
+          (img && img.apiKey ? '' : '图片优化服务未配置（密钥保险箱 imageOpt 槽位为空）。') +
+          '参数已校验通过，可灵AI图生图管线接入中（P1）。已收到请求：' +
+          `mode=${args.mode}, language=${args.language || 'zh'}, image=${String(args.image_url).slice(0, 120)}`,
+        params: args,
+      },
+      provider: 'image-skeleton',
+    }
+  },
+
+  async generate_product_video(args) {
+    const v = vault.loadVault()
+    const vid = v.keys.videoGen
+    // 骨架：可灵AI 图生视频（异步任务模型：提交 → 轮询 → 取结果，P1 接入）
+    // TODO(P1)：kling 视频生成 —— 提交任务 → 轮询任务状态 → 返回视频 URL
+    return {
+      data: {
+        status: 'pending',
+        message:
+          (vid && vid.apiKey ? '' : '视频生成服务未配置（密钥保险箱 videoGen 槽位为空）。') +
+          '参数已校验通过，可灵AI图生视频管线接入中（P1）。已收到请求：' +
+          `duration=${args.duration_seconds || 5}s, ratio=${args.ratio || '16:9'}, ` +
+          `source=${args.image_url || args.product_title || ''}`,
+        params: args,
+      },
+      provider: 'video-skeleton',
+    }
   },
 
   async search_tcm_kb(args) {

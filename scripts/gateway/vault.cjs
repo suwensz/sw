@@ -5,6 +5,9 @@
  *   - LLM 密钥（DeepSeek/豆包/扣子）：兼容旧单槽 apiKey 字段
  *   - Embedding 密钥（SiliconFlow BGE-M3 / 智谱）：keys.embedding 槽位
  *   - 1688 开放平台（预留）：keys.ali1688 槽位
+ *   - 素问Tokens分发器（阶段4）：keys.suwensz 统一槽位（LLM 转发 + 电商数据代理）
+ *   - 电商大数据（阶段4预留）：keys.ecomData 槽位
+ *   - 图片优化 / 视频生成（阶段4）：keys.imageOpt / keys.videoGen 槽位（默认可灵AI）
  *
  * 三端权限：开发端可写、管理端未锁定可写、运营端只读（校验 X-Portal 头）
  * 读取接口返回脱敏 Key（仅末 4 位），明文 Key 永不出网关。
@@ -49,6 +52,14 @@ const DEFAULT_VAULT = {
     embedding: { provider: 'siliconflow', apiKey: '', endpoint: EMBEDDING_PRESETS.siliconflow.endpoint, model: EMBEDDING_PRESETS.siliconflow.model },
     /** 1688 开放平台（阶段3预留） */
     ali1688: { appKey: '', appSecret: '', accessToken: '', expireAt: null },
+    /** 素问Tokens分发器（阶段4：统一代理 1688/淘宝/京东/亚马逊 + LLM 转发，OpenAI 兼容） */
+    suwensz: { apiKey: '', endpoint: 'https://api.suwensz.com' },
+    /** 电商大数据（采购/供应数据库，数据威/魔镜等，P2 预留） */
+    ecomData: { provider: '', apiKey: '', endpoint: '' },
+    /** 图片优化服务（商品主图/白底图/多语言文案图，默认可灵AI） */
+    imageOpt: { provider: 'kling', apiKey: '', endpoint: '' },
+    /** 视频生成服务（商品短视频，默认可灵AI 视频生成） */
+    videoGen: { provider: 'kling', apiKey: '', endpoint: '' },
   },
   locked: false,
   updatedBy: null,
@@ -96,6 +107,10 @@ function loadVault() {
     llm: { ...DEFAULT_VAULT.keys.llm, ...((parsed && parsed.keys && parsed.keys.llm) || {}) },
     embedding: { ...DEFAULT_VAULT.keys.embedding, ...((parsed && parsed.keys && parsed.keys.embedding) || {}) },
     ali1688: { ...DEFAULT_VAULT.keys.ali1688, ...((parsed && parsed.keys && parsed.keys.ali1688) || {}) },
+    suwensz: { ...DEFAULT_VAULT.keys.suwensz, ...((parsed && parsed.keys && parsed.keys.suwensz) || {}) },
+    ecomData: { ...DEFAULT_VAULT.keys.ecomData, ...((parsed && parsed.keys && parsed.keys.ecomData) || {}) },
+    imageOpt: { ...DEFAULT_VAULT.keys.imageOpt, ...((parsed && parsed.keys && parsed.keys.imageOpt) || {}) },
+    videoGen: { ...DEFAULT_VAULT.keys.videoGen, ...((parsed && parsed.keys && parsed.keys.videoGen) || {}) },
   }
   // 旧结构迁移：无 keys.llm.apiKey 时把旧单槽 apiKey 迁入（保留原字段兼容读取）
   if (!v.keys.llm.apiKey && v.apiKey) v.keys.llm.apiKey = v.apiKey
@@ -144,6 +159,36 @@ function vaultView() {
       endpoint: v.keys.embedding.endpoint,
       model: v.keys.embedding.model,
     },
+    ali1688: {
+      appKey: v.keys.ali1688.appKey,
+      appSecret: maskKey(v.keys.ali1688.appSecret),
+      hasCredential: !!(v.keys.ali1688.appKey && v.keys.ali1688.appSecret),
+      accessToken: maskKey(v.keys.ali1688.accessToken),
+      expireAt: v.keys.ali1688.expireAt,
+    },
+    suwensz: {
+      apiKey: maskKey(v.keys.suwensz.apiKey),
+      hasKey: !!v.keys.suwensz.apiKey,
+      endpoint: v.keys.suwensz.endpoint,
+    },
+    ecomData: {
+      provider: v.keys.ecomData.provider,
+      apiKey: maskKey(v.keys.ecomData.apiKey),
+      hasKey: !!v.keys.ecomData.apiKey,
+      endpoint: v.keys.ecomData.endpoint,
+    },
+    imageOpt: {
+      provider: v.keys.imageOpt.provider,
+      apiKey: maskKey(v.keys.imageOpt.apiKey),
+      hasKey: !!v.keys.imageOpt.apiKey,
+      endpoint: v.keys.imageOpt.endpoint,
+    },
+    videoGen: {
+      provider: v.keys.videoGen.provider,
+      apiKey: maskKey(v.keys.videoGen.apiKey),
+      hasKey: !!v.keys.videoGen.apiKey,
+      endpoint: v.keys.videoGen.endpoint,
+    },
     locked: v.locked,
     updatedBy: v.updatedBy,
     updatedAt: v.updatedAt,
@@ -175,9 +220,9 @@ function setVaultConfig(patch, portal) {
     next.keys.llm.apiKey = patch.apiKey
   }
 
-  // keys 槽位合并（embedding / ali1688）
+  // keys 槽位合并（embedding / ali1688 / suwensz / ecomData / imageOpt / videoGen）
   if (patch.keys && typeof patch.keys === 'object') {
-    for (const slot of ['embedding', 'ali1688', 'llm']) {
+    for (const slot of ['embedding', 'ali1688', 'llm', 'suwensz', 'ecomData', 'imageOpt', 'videoGen']) {
       const p = patch.keys[slot]
       if (p && typeof p === 'object') {
         for (const [k, val] of Object.entries(p)) {
