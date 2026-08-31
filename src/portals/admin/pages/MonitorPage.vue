@@ -42,7 +42,7 @@ function statusLabel(metric: MonitorMetric): string {
 
 <template>
   <div class="portal-page">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px">
+    <div class="portal-page-head">
       <h2 style="margin: 0">{{ t('admin.menu.monitor') }}</h2>
       <el-button size="small" @click="refresh">
         <el-icon><Refresh /></el-icon> {{ t('admin.monitor.refresh') }}

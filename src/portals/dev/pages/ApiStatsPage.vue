@@ -69,7 +69,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="portal-page">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px">
+    <div class="portal-page-head">
       <h2 style="margin: 0">{{ t('dev.menu.apiStats') }}</h2>
       <el-radio-group v-model="range" size="small">
         <el-radio-button value="7d">{{ t('dev.apiStats.range7d') }}</el-radio-button>

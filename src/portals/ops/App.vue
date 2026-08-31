@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import PortalLayout from '@/portals/common/PortalLayout.vue'
 import OrderAgentWidget from './components/OrderAgentWidget.vue'
 import VoiceAssistant from '@/components/VoiceAssistant.vue'
+import { PORTAL_META_KEY } from '@/portals/common/portalMeta'
 import { opsMenuGroups } from './menu'
 
 const route = useRoute()
@@ -13,6 +14,8 @@ const portalMeta = {
   subtitle: 'Operations Console',
   portalTag: '运营端',
 }
+
+provide(PORTAL_META_KEY, portalMeta)
 
 // 登录页独立全屏渲染（不套门户布局与悬浮球）
 const isAuthPage = computed(() => route.path === '/login')

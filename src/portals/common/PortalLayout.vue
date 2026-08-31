@@ -51,6 +51,19 @@ const currentTitle = computed(() => {
   return metaTitle || route.name?.toString() || ''
 })
 
+/** 当前路由所属的一级菜单分组名，用于顶栏面包屑 */
+const currentGroupLabel = computed(() => {
+  const group = props.groups.find((g) => g.items.some((i) => i.to === route.path))
+  if (!group) return ''
+  return group.labelKey ? t(group.labelKey) : group.label
+})
+
+/** 顶栏面包屑：门户 → 菜单分组 → 当前页面，自动去重 */
+const crumbSegments = computed(() => {
+  const raw = [currentGroupLabel.value, currentTitle.value].filter(Boolean)
+  return raw.filter((seg, i) => i === 0 || seg !== raw[i - 1])
+})
+
 const activeIndex = computed(() => route.path)
 
 function goMainSite() {
@@ -102,7 +115,15 @@ function brandMark() {
     <!-- 主区域 -->
     <div class="portal-main">
       <header class="portal-header">
-        <div class="portal-header-title">{{ currentTitle }}</div>
+        <div class="portal-header-title">
+          <nav class="portal-crumb">
+            <span class="portal-crumb-root">{{ portalTag }}</span>
+            <template v-for="(seg, i) in crumbSegments" :key="i">
+              <span class="portal-crumb-sep">/</span>
+              <span :class="i === crumbSegments.length - 1 ? 'portal-crumb-leaf' : 'portal-crumb-mid'">{{ seg }}</span>
+            </template>
+          </nav>
+        </div>
         <div class="portal-header-right">
           <!-- 多国语言选择栏（中东 / 东南亚等语种） -->
           <LanguageSwitcher v-if="showLangSwitch" />

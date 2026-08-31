@@ -25,7 +25,7 @@ const filtered = computed(() => {
 
 <template>
   <div class="portal-page">
-    <div class="page-head">
+    <div class="portal-page-head">
       <h2 style="margin: 0">{{ t('admin.menu.audit') }}</h2>
     </div>
     <p class="portal-stat-desc">平台关键操作审计记录，管理端所有写操作自动写入。</p>
@@ -59,13 +59,6 @@ const filtered = computed(() => {
 </template>
 
 <style scoped>
-.page-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-.page-head h2 { font-size: 20px; }
 .filter-bar {
   display: flex;
   gap: 12px;

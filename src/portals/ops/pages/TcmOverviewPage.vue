@@ -37,7 +37,7 @@ const quickLinks = computed(() => [
 </script>
 
 <template>
-  <div class="tcm-overview">
+  <div class="portal-page tcm-overview">
     <header class="tcm-hero">
       <div class="tcm-hero-text">
         <h1 class="tcm-hero-title">
@@ -116,9 +116,6 @@ const quickLinks = computed(() => [
 
 <style scoped>
 .tcm-overview {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 8px 4px 40px;
   display: flex;
   flex-direction: column;
   gap: 18px;

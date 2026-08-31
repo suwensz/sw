@@ -96,6 +96,155 @@ export const SEED_SDK: SdkItem[] = [
   { lang: 'PHP', icon: '🐘', version: 'v1.0.7', size: '1.4 MB', notes: '支持 PHP 8.0+' },
 ]
 
+// ===== 沙箱调试台：接口模板 / 响应场景 / 调用日志 =====
+
+export type SandboxMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
+export type SandboxScenarioKey = 'success' | 'badRequest' | 'unauthorized' | 'rateLimit' | 'serverError'
+
+export interface SandboxEndpoint {
+  id: string
+  method: SandboxMethod
+  path: string
+  desc: string
+  /** 默认请求体（GET / DELETE 为空） */
+  body: string
+  /** 成功响应示例 */
+  sample: unknown
+}
+
+export interface SandboxLogItem {
+  id: string
+  method: SandboxMethod
+  path: string
+  status: number
+  ms: number
+  time: string
+  ok: boolean
+}
+
+export const SANDBOX_BASE_URL = 'https://sandbox-api.suheng-os.com'
+export const SANDBOX_PROD_URL = 'https://api.suheng-os.com'
+export const SANDBOX_MOCK_RECORDS = 12480
+
+export const SANDBOX_ENDPOINTS: SandboxEndpoint[] = [
+  {
+    id: 'products-list',
+    method: 'GET',
+    path: '/v1/products?page=1&pageSize=10',
+    desc: '分页查询商品列表',
+    body: '',
+    sample: {
+      code: 0,
+      message: 'ok',
+      data: {
+        total: 128,
+        page: 1,
+        pageSize: 10,
+        list: [
+          { id: 'p001', name: '黄芪精口服液', price: 128, stock: 640 },
+          { id: 'p002', name: '枸杞原浆', price: 89, stock: 1250 },
+          { id: 'p003', name: '艾灸养生礼盒', price: 268, stock: 86 },
+        ],
+      },
+    },
+  },
+  {
+    id: 'orders-create',
+    method: 'POST',
+    path: '/v1/orders',
+    desc: '创建跨境订单',
+    body: '{\n  "items": [\n    { "productId": "p001", "qty": 2 }\n  ],\n  "currency": "USD"\n}',
+    sample: {
+      code: 0,
+      message: 'ok',
+      data: { orderId: 'SO20260831001', amount: 256, currency: 'USD', status: 'created' },
+    },
+  },
+  {
+    id: 'orders-list',
+    method: 'GET',
+    path: '/v1/orders?status=paid&page=1',
+    desc: '查询订单列表',
+    body: '',
+    sample: {
+      code: 0,
+      message: 'ok',
+      data: {
+        total: 42,
+        list: [
+          { orderId: 'SO20260830017', amount: 512, status: 'paid' },
+          { orderId: 'SO20260830018', amount: 89, status: 'paid' },
+        ],
+      },
+    },
+  },
+  {
+    id: 'health-record',
+    method: 'GET',
+    path: '/v1/health/record?userId=u-1',
+    desc: '查询健康档案',
+    body: '',
+    sample: {
+      code: 0,
+      message: 'ok',
+      data: { userId: 'u-1', constitution: 'qi_deficiency', bmi: 22.4, updatedAt: '2026-08-30 21:10' },
+    },
+  },
+  {
+    id: 'auth-token',
+    method: 'POST',
+    path: '/v1/auth/token',
+    desc: '换取访问令牌',
+    body: '{\n  "appKey": "ak_7f3c9d1e2a4b",\n  "scope": "health.*"\n}',
+    sample: {
+      code: 0,
+      message: 'ok',
+      data: { accessToken: 'at_sbx_9c1e4a7b2d', expiresIn: 7200 },
+    },
+  },
+  {
+    id: 'products-update',
+    method: 'PUT',
+    path: '/v1/products/p001',
+    desc: '更新商品库存',
+    body: '{\n  "stock": 600,\n  "price": 128\n}',
+    sample: {
+      code: 0,
+      message: 'ok',
+      data: { id: 'p001', stock: 600, price: 128, updatedAt: '2026-08-31 11:20' },
+    },
+  },
+  {
+    id: 'family-delete',
+    method: 'DELETE',
+    path: '/v1/family/f001',
+    desc: '删除家人档案',
+    body: '',
+    sample: { code: 0, message: 'ok', data: { id: 'f001', deleted: true } },
+  },
+]
+
+/** 成功场景状态码留空，由请求方法推导（POST → 201，其余 → 200） */
+export const SANDBOX_SCENARIOS: Record<SandboxScenarioKey, { status: number | null; body: unknown }> = {
+  success: { status: null, body: null },
+  badRequest: {
+    status: 400,
+    body: { code: 40001, message: '参数校验失败：pageSize 超出允许范围（1-100）', data: null },
+  },
+  unauthorized: {
+    status: 401,
+    body: { code: 40100, message: 'Token 无效或已过期，请重新生成沙箱 Token', data: null },
+  },
+  rateLimit: {
+    status: 429,
+    body: { code: 42900, message: '请求过于频繁，已触发沙箱限流（100 次/分钟）', data: null },
+  },
+  serverError: {
+    status: 500,
+    body: { code: 50000, message: '服务内部错误（沙箱模拟），请稍后重试', data: null },
+  },
+}
+
 export function generateCallTrend(days: number): Array<{ date: string; value: number }> {
   const now = new Date()
   const list: Array<{ date: string; value: number }> = []

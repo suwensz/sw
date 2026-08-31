@@ -45,7 +45,7 @@ async function revoke(key: DevKey) {
 
 <template>
   <div class="portal-page">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
+    <div class="portal-page-head">
       <h2 style="margin: 0">{{ t('dev.menu.keys') }}</h2>
       <el-button type="primary" @click="createVisible = true">
         <el-icon><Plus /></el-icon> {{ t('dev.keys.generateKey') }}

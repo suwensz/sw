@@ -375,7 +375,7 @@ async function resetAll() {
 </script>
 
 <template>
-  <div class="showcase-page">
+  <div class="portal-page showcase-page">
     <header class="showcase-hero">
       <div class="showcase-hero-text">
         <h1 class="showcase-hero-title">
@@ -769,9 +769,6 @@ async function resetAll() {
 
 <style scoped>
 .showcase-page {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 8px 4px 40px;
   display: flex;
   flex-direction: column;
   gap: 18px;

@@ -5,9 +5,8 @@ import type { LocaleCode } from '@/types'
 
 type PortalMessages = {
   layout: { backToMain: string; accountSuffix: string }
-  /** 运营端登录/注册 */
+  /** 开发端 / 运营端 / 管理端 共用登录页 */
   auth: {
-    brandTitle: string
     brandSub: string
     loginTab: string
     registerTab: string
@@ -431,7 +430,6 @@ type PortalMessages = {
 const zh: PortalMessages = {
   layout: { backToMain: '返回主站', accountSuffix: '账号' },
   auth: {
-    brandTitle: '素衡OS 运营端',
     brandSub: '登录 / 注册 · 多渠道账号',
     loginTab: '登录',
     registerTab: '注册',
@@ -449,9 +447,9 @@ const zh: PortalMessages = {
     loginBtn: '登录',
     registerBtn: '注册',
     socialDivider: '社交账号直接登录',
-    welcomeBack: '欢迎回来，已为您登录运营端',
+    welcomeBack: '欢迎回来，已为您登录',
     logout: '退出登录',
-    footerNote: '运营端登录支持手机号 / 邮箱 / 国内外社交账号',
+    footerNote: '登录支持手机号 / 邮箱 / 国内外社交账号',
   },
   opsMenu: {
     groupOverview: '总览',
@@ -860,7 +858,6 @@ const zh: PortalMessages = {
 const en: PortalMessages = {
   layout: { backToMain: 'Main Site', accountSuffix: 'Account' },
   auth: {
-    brandTitle: 'Suheng OS Operations',
     brandSub: 'Sign in / Register · Multi-channel',
     loginTab: 'Sign In',
     registerTab: 'Register',
@@ -878,7 +875,7 @@ const en: PortalMessages = {
     loginBtn: 'Sign In',
     registerBtn: 'Register',
     socialDivider: 'Or continue with social account',
-    welcomeBack: 'Welcome back, signed in to Operations',
+    welcomeBack: 'Welcome back',
     logout: 'Sign Out',
     footerNote: 'Phone / email / global social accounts supported',
   },
@@ -1289,7 +1286,6 @@ const en: PortalMessages = {
 const ar: PortalMessages = {
   layout: { backToMain: 'الموقع الرئيسي', accountSuffix: 'حساب' },
   auth: {
-    brandTitle: 'سوهنغ OS للعمليات',
     brandSub: 'تسجيل الدخول / إنشاء حساب · متعدد القنوات',
     loginTab: 'تسجيل الدخول',
     registerTab: 'إنشاء حساب',
@@ -1718,7 +1714,6 @@ const ar: PortalMessages = {
 const vi: PortalMessages = {
   layout: { backToMain: 'Trang chính', accountSuffix: 'Tài khoản' },
   auth: {
-    brandTitle: 'Suheng OS Vận hành',
     brandSub: 'Đăng nhập / Đăng ký · Đa kênh',
     loginTab: 'Đăng nhập',
     registerTab: 'Đăng ký',
@@ -2147,7 +2142,6 @@ const vi: PortalMessages = {
 const th: PortalMessages = {
   layout: { backToMain: 'หน้าหลัก', accountSuffix: 'บัญชี' },
   auth: {
-    brandTitle: 'Suheng OS ฝ่ายปฏิบัติการ',
     brandSub: 'เข้าสู่ระบบ / สมัครใช้งาน · หลายช่องทาง',
     loginTab: 'เข้าสู่ระบบ',
     registerTab: 'สมัครใช้งาน',
@@ -2576,7 +2570,6 @@ const th: PortalMessages = {
 const id: PortalMessages = {
   layout: { backToMain: 'Situs Utama', accountSuffix: 'Akun' },
   auth: {
-    brandTitle: 'Suheng OS Operasional',
     brandSub: 'Masuk / Daftar · Multi-kanal',
     loginTab: 'Masuk',
     registerTab: 'Daftar',
@@ -3005,7 +2998,6 @@ const id: PortalMessages = {
 const ms: PortalMessages = {
   layout: { backToMain: 'Laman Utama', accountSuffix: 'Akaun' },
   auth: {
-    brandTitle: 'Suheng OS Operasi',
     brandSub: 'Log Masuk / Daftar · Pelbagai saluran',
     loginTab: 'Log Masuk',
     registerTab: 'Daftar',
@@ -3434,7 +3426,6 @@ const ms: PortalMessages = {
 const fil: PortalMessages = {
   layout: { backToMain: 'Pangunahing Site', accountSuffix: 'Account' },
   auth: {
-    brandTitle: 'Suheng OS Operations',
     brandSub: 'Mag-login / Mag-register · Maraming channel',
     loginTab: 'Mag-login',
     registerTab: 'Mag-register',

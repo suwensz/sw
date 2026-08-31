@@ -94,7 +94,7 @@ const agentGroups = computed(() => {
 </script>
 
 <template>
-  <div class="agents-page">
+  <div class="portal-page agents-page">
     <!-- 头部：一键激活 -->
     <header class="agents-hero">
       <div class="agents-hero-text">
@@ -238,9 +238,6 @@ const agentGroups = computed(() => {
 
 <style scoped>
 .agents-page {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 8px 4px 40px;
   display: flex;
   flex-direction: column;
   gap: 18px;

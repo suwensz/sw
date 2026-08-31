@@ -93,10 +93,57 @@ export type DevMessages = {
   }
   sandbox: {
     baseUrl: string
+    prodUrl: string
     envToken: string
     testMode: string
     resetSandbox: string
     resetConfirm: string
+    isolateTip: string
+    envStatus: string
+    todayCalls: string
+    avgLatency: string
+    mockRecords: string
+    healthy: string
+    unhealthy: string
+    show: string
+    hide: string
+    regenerate: string
+    regenerateConfirm: string
+    regenerated: string
+    consoleTitle: string
+    consoleDesc: string
+    method: string
+    path: string
+    scenario: string
+    mockDelay: string
+    scenarioSuccess: string
+    scenarioBadRequest: string
+    scenarioUnauthorized: string
+    scenarioRateLimit: string
+    scenarioServerError: string
+    send: string
+    sending: string
+    requestBody: string
+    bodyPlaceholder: string
+    bodyInvalid: string
+    pathRequired: string
+    response: string
+    noResponse: string
+    historyTitle: string
+    historyTime: string
+    historyResult: string
+    clearHistory: string
+    historyEmpty: string
+    snippetTitle: string
+    snippetTip: string
+    copySnippet: string
+    mockModeTip: string
+    liveModeTip: string
+    liveModeLock: string
+    resetDone: string
+    copyFailed: string
+    unitMs: string
+    unitRecords: string
   }
   sdk: {
     lang: string
@@ -128,6 +175,62 @@ export type DevMessages = {
     channel: string
     lastTrigger: string
     deleteConfirm: string
+  }
+  ecom: {
+    title: string
+    subtitle: string
+    platform: string
+    status: string
+    env: string
+    prod: string
+    sandbox: string
+    sandboxUnsupported: string
+    appKey: string
+    appSecret: string
+    session: string
+    callback: string
+    pollInterval: string
+    gateway: string
+    docs: string
+    oauth: string
+    configure: string
+    test: string
+    testing: string
+    statusIdle: string
+    statusConnected: string
+    statusError: string
+    lastCheck: string
+    scenarioCount: string
+    unconfigured: string
+    requiredTip: string
+    credentialTip: string
+    methodTip: string
+    rateLimit: string
+    signTitle: string
+    signDesc: string
+    method: string
+    bizParams: string
+    timestamp: string
+    generateSign: string
+    signSource: string
+    signValue: string
+    copyUrl: string
+    copyCurl: string
+    simulatePush: string
+    pushResult: string
+    pushHit: string
+    pushMiss: string
+    scenarioTitle: string
+    scenarioDesc: string
+    scenarioName: string
+    scenarioMetric: string
+    subscribe: string
+    generateRules: string
+    generateRulesDone: string
+    generateRulesEmpty: string
+    testSuccess: string
+    testFail: string
+    unitMinute: string
   }
 }
 
@@ -223,10 +326,57 @@ const zh: DevMessages = {
   },
   sandbox: {
     baseUrl: '沙箱地址',
+    prodUrl: '生产地址',
     envToken: '沙箱 Token',
     testMode: '测试模式',
     resetSandbox: '重置沙箱',
-    resetConfirm: '确定重置沙箱环境吗？测试数据将被清空',
+    resetConfirm: '确定重置沙箱环境吗？令牌将重新生成，调用日志与调试记录会被清空。',
+    isolateTip: '沙箱与生产环境数据完全隔离，请求不会产生真实业务单据，可放心压测与联调。',
+    envStatus: '环境状态',
+    todayCalls: '今日调用',
+    avgLatency: '平均延迟',
+    mockRecords: 'Mock 数据',
+    healthy: '正常',
+    unhealthy: '拥塞',
+    show: '显示',
+    hide: '隐藏',
+    regenerate: '重新生成',
+    regenerateConfirm: '重新生成后旧 Token 立即失效，确定继续吗？',
+    regenerated: 'Token 已重新生成，请更新本地配置',
+    consoleTitle: '接口调试台',
+    consoleDesc: '选择接口模板后可直接发起请求，支持模拟异常状态码与网络延迟。',
+    method: '请求方法',
+    path: '接口路径',
+    scenario: '响应场景',
+    mockDelay: '模拟延迟',
+    scenarioSuccess: '成功',
+    scenarioBadRequest: '参数错误',
+    scenarioUnauthorized: '鉴权失败',
+    scenarioRateLimit: '限流',
+    scenarioServerError: '服务异常',
+    send: '发送请求',
+    sending: '请求中',
+    requestBody: '请求体',
+    bodyPlaceholder: '请输入 JSON 格式的请求体，GET / DELETE 请求可留空',
+    bodyInvalid: '请求体不是合法的 JSON，请检查后重试',
+    pathRequired: '请先填写接口路径',
+    response: '响应结果',
+    noResponse: '尚未发起请求，点击「发送请求」后在此查看响应。',
+    historyTitle: '调用日志',
+    historyTime: '时间',
+    historyResult: '结果',
+    clearHistory: '清空日志',
+    historyEmpty: '暂无调用记录',
+    snippetTitle: '接入代码片段',
+    snippetTip: '以下片段已填入当前沙箱地址与 Token，可直接复制使用。',
+    copySnippet: '复制代码',
+    mockModeTip: '沙箱模式：返回 Mock 数据，可模拟各类异常场景。',
+    liveModeTip: '联调模式：请求直连联调服务，异常模拟已关闭。',
+    liveModeLock: '联调模式下不可模拟异常与延迟',
+    resetDone: '沙箱已重置',
+    copyFailed: '复制失败，请手动选择内容复制',
+    unitMs: 'ms',
+    unitRecords: '条',
   },
   sdk: {
     lang: '语言',
@@ -258,6 +408,62 @@ const zh: DevMessages = {
     channel: '通知渠道',
     lastTrigger: '最近触发',
     deleteConfirm: '确定删除该告警规则吗？',
+  },
+  ecom: {
+    title: '电商渠道接入',
+    subtitle: '将淘宝 / 京东 / 拼多多开放平台的店铺事件接入统一告警中心，支持凭证配置、签名联调与场景订阅。',
+    platform: '平台',
+    status: '对接状态',
+    env: '环境',
+    prod: '生产',
+    sandbox: '沙箱',
+    sandboxUnsupported: '该平台未提供独立沙箱域名，将使用生产网关联调',
+    appKey: '应用标识',
+    appSecret: '应用密钥',
+    session: '会话令牌',
+    callback: '回调地址',
+    pollInterval: '轮询间隔',
+    gateway: '网关地址',
+    docs: '开放平台文档',
+    oauth: '授权地址',
+    configure: '配置',
+    test: '联调测试',
+    testing: '测试中',
+    statusIdle: '未联调',
+    statusConnected: '已连通',
+    statusError: '异常',
+    lastCheck: '上次联调',
+    scenarioCount: '已订阅',
+    unconfigured: '未配置凭证',
+    requiredTip: '请先配置应用标识与应用密钥',
+    credentialTip: '密钥仅保存在本地浏览器，用于生成签名；请勿提交到代码仓库。',
+    methodTip: '接口名为常用预置值，实际请以开放平台控制台已申请/已授权的接口为准，可自行修改。',
+    rateLimit: '调用限流',
+    signTitle: '签名联调台',
+    signDesc: '按各平台规范拼接待签名原文并生成 MD5 大写签名，可直接用于联调与自测。',
+    method: '接口方法',
+    bizParams: '业务参数',
+    timestamp: '时间戳',
+    generateSign: '生成签名',
+    signSource: '待签名原文',
+    signValue: '签名值',
+    copyUrl: '复制请求 URL',
+    copyCurl: '复制 cURL',
+    simulatePush: '模拟推送校验',
+    pushResult: '推送校验结果',
+    pushHit: '命中告警规则，已产生一条告警',
+    pushMiss: '未命中，当前场景未订阅或不满足阈值',
+    scenarioTitle: '告警场景订阅',
+    scenarioDesc: '勾选场景后批量生成告警规则，规则会出现在下方的告警规则列表中。',
+    scenarioName: '场景',
+    scenarioMetric: '监控指标',
+    subscribe: '订阅',
+    generateRules: '生成告警规则',
+    generateRulesDone: '已生成 {n} 条告警规则',
+    generateRulesEmpty: '请先勾选需要订阅的场景',
+    testSuccess: '联调通过，签名校验一致',
+    testFail: '联调失败：{reason}',
+    unitMinute: '分钟',
   },
 }
 
@@ -353,10 +559,57 @@ const en: DevMessages = {
   },
   sandbox: {
     baseUrl: 'Sandbox URL',
+    prodUrl: 'Production URL',
     envToken: 'Sandbox Token',
     testMode: 'Test Mode',
     resetSandbox: 'Reset Sandbox',
-    resetConfirm: 'Reset sandbox? Test data will be wiped.',
+    resetConfirm: 'Reset sandbox? The token will be regenerated and the call log cleared.',
+    isolateTip: 'Sandbox data is fully isolated from production. No real business records are created.',
+    envStatus: 'Environment',
+    todayCalls: 'Calls Today',
+    avgLatency: 'Avg Latency',
+    mockRecords: 'Mock Records',
+    healthy: 'Healthy',
+    unhealthy: 'Congested',
+    show: 'Show',
+    hide: 'Hide',
+    regenerate: 'Regenerate',
+    regenerateConfirm: 'The current token becomes invalid immediately. Continue?',
+    regenerated: 'Token regenerated, please update your local config',
+    consoleTitle: 'API Console',
+    consoleDesc: 'Pick a template and send requests. Error status codes and latency can be simulated.',
+    method: 'Method',
+    path: 'Path',
+    scenario: 'Scenario',
+    mockDelay: 'Simulated Delay',
+    scenarioSuccess: 'Success',
+    scenarioBadRequest: 'Bad Request',
+    scenarioUnauthorized: 'Unauthorized',
+    scenarioRateLimit: 'Rate Limited',
+    scenarioServerError: 'Server Error',
+    send: 'Send Request',
+    sending: 'Sending',
+    requestBody: 'Request Body',
+    bodyPlaceholder: 'JSON request body. Leave empty for GET / DELETE',
+    bodyInvalid: 'Request body is not valid JSON',
+    pathRequired: 'Please enter a request path first',
+    response: 'Response',
+    noResponse: 'No request sent yet. Click "Send Request" to see the response here.',
+    historyTitle: 'Call Log',
+    historyTime: 'Time',
+    historyResult: 'Result',
+    clearHistory: 'Clear Log',
+    historyEmpty: 'No call records',
+    snippetTitle: 'Integration Snippets',
+    snippetTip: 'Snippets are prefilled with the current sandbox URL and token.',
+    copySnippet: 'Copy Code',
+    mockModeTip: 'Sandbox mode: returns mock data and allows error simulation.',
+    liveModeTip: 'Live mode: requests hit the staging service, error simulation is disabled.',
+    liveModeLock: 'Error and delay simulation is disabled in live mode',
+    resetDone: 'Sandbox reset',
+    copyFailed: 'Copy failed, please select and copy manually',
+    unitMs: 'ms',
+    unitRecords: 'records',
   },
   sdk: {
     lang: 'Language',
@@ -388,6 +641,62 @@ const en: DevMessages = {
     channel: 'Notify Channel',
     lastTrigger: 'Last Trigger',
     deleteConfirm: 'Delete this alert rule?',
+  },
+  ecom: {
+    title: 'E-commerce Channels',
+    subtitle: 'Connect Taobao / JD / Pinduoduo open platform events to the unified alert center with credential setup, signature testing and scenario subscription.',
+    platform: 'Platform',
+    status: 'Status',
+    env: 'Environment',
+    prod: 'Production',
+    sandbox: 'Sandbox',
+    sandboxUnsupported: 'No dedicated sandbox host is provided; the production gateway will be used',
+    appKey: 'App Key',
+    appSecret: 'App Secret',
+    session: 'Session Token',
+    callback: 'Callback URL',
+    pollInterval: 'Poll Interval',
+    gateway: 'Gateway',
+    docs: 'Open Platform Docs',
+    oauth: 'Authorization URL',
+    configure: 'Configure',
+    test: 'Connection Test',
+    testing: 'Testing',
+    statusIdle: 'Not Tested',
+    statusConnected: 'Connected',
+    statusError: 'Error',
+    lastCheck: 'Last Check',
+    scenarioCount: 'Subscribed',
+    unconfigured: 'Credentials missing',
+    requiredTip: 'Please configure the app key and app secret first',
+    credentialTip: 'Secrets are stored in the local browser only and used to build signatures. Never commit them.',
+    methodTip: 'Method names are common defaults. Use the API names actually granted in the open platform console.',
+    rateLimit: 'Rate Limit',
+    signTitle: 'Signature Console',
+    signDesc: 'Builds the sign source per platform spec and generates the uppercase MD5 signature for integration testing.',
+    method: 'API Method',
+    bizParams: 'Business Params',
+    timestamp: 'Timestamp',
+    generateSign: 'Generate Signature',
+    signSource: 'Sign Source',
+    signValue: 'Signature',
+    copyUrl: 'Copy Request URL',
+    copyCurl: 'Copy cURL',
+    simulatePush: 'Simulate Push',
+    pushResult: 'Push Verification Result',
+    pushHit: 'Matched an alert rule, one alert was raised',
+    pushMiss: 'No match: scenario not subscribed or threshold not met',
+    scenarioTitle: 'Alert Scenario Subscription',
+    scenarioDesc: 'Select scenarios to batch-create alert rules. New rules appear in the alert rule list below.',
+    scenarioName: 'Scenario',
+    scenarioMetric: 'Metric',
+    subscribe: 'Subscribe',
+    generateRules: 'Create Alert Rules',
+    generateRulesDone: '{n} alert rule(s) created',
+    generateRulesEmpty: 'Please select at least one scenario',
+    testSuccess: 'Connection OK, signature verified',
+    testFail: 'Connection failed: {reason}',
+    unitMinute: 'min',
   },
 }
 

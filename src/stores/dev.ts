@@ -14,11 +14,18 @@ import {
   type WebhookRecord,
   type AlertRule,
 } from '@/mock/devData'
+import {
+  SEED_ECOM_CHANNELS,
+  type EcomChannel,
+  type EcomChannelStatus,
+  type EcomPlatformKey,
+} from '@/mock/ecomChannels'
 
 const APPS_KEY = 'qh_dev_apps'
 const KEYS_KEY = 'qh_dev_keys'
 const WEBHOOKS_KEY = 'qh_dev_webhooks'
 const ALERTS_KEY = 'qh_dev_alerts'
+const ECOM_KEY = 'qh_dev_ecom_channels'
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -38,6 +45,7 @@ export const useDevStore = defineStore('dev', () => {
   const keys = ref<DevKey[]>(load(KEYS_KEY, SEED_DEV_KEYS))
   const webhooks = ref<WebhookRecord[]>(load(WEBHOOKS_KEY, SEED_WEBHOOKS))
   const alerts = ref<AlertRule[]>(load(ALERTS_KEY, SEED_ALERT_RULES))
+  const ecomChannels = ref<EcomChannel[]>(load(ECOM_KEY, SEED_ECOM_CHANNELS))
 
   // ---- 应用 ----
   function addApp(app: Omit<DevApp, 'id' | 'createdAt'>) {
@@ -120,11 +128,43 @@ export const useDevStore = defineStore('dev', () => {
     save(ALERTS_KEY, alerts.value)
   }
 
+  // ---- 电商渠道接入 ----
+  function ecomChannel(platform: EcomPlatformKey): EcomChannel | undefined {
+    return ecomChannels.value.find((c) => c.platform === platform)
+  }
+  function updateEcomChannel(platform: EcomPlatformKey, patch: Partial<EcomChannel>) {
+    const target = ecomChannel(platform)
+    if (target) {
+      Object.assign(target, patch)
+      save(ECOM_KEY, ecomChannels.value)
+    }
+  }
+  function toggleEcomChannel(platform: EcomPlatformKey) {
+    const target = ecomChannel(platform)
+    if (target) {
+      target.enabled = !target.enabled
+      if (!target.enabled) target.status = 'idle'
+      save(ECOM_KEY, ecomChannels.value)
+    }
+  }
+  function setEcomStatus(platform: EcomPlatformKey, status: EcomChannelStatus, lastCheck: string) {
+    updateEcomChannel(platform, { status, lastCheck })
+  }
+  function toggleEcomScenario(platform: EcomPlatformKey, scenarioId: string) {
+    const target = ecomChannel(platform)
+    if (!target) return
+    target.scenarios = target.scenarios.includes(scenarioId)
+      ? target.scenarios.filter((s) => s !== scenarioId)
+      : [...target.scenarios, scenarioId]
+    save(ECOM_KEY, ecomChannels.value)
+  }
+
   return {
     apps,
     keys,
     webhooks,
     alerts,
+    ecomChannels,
     addApp,
     updateApp,
     removeApp,
@@ -136,5 +176,10 @@ export const useDevStore = defineStore('dev', () => {
     addAlert,
     toggleAlert,
     removeAlert,
+    ecomChannel,
+    updateEcomChannel,
+    toggleEcomChannel,
+    setEcomStatus,
+    toggleEcomScenario,
   }
 })

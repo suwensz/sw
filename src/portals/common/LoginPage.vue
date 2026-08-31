@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, inject, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { useAuthStore, type AuthProvider } from '@/stores/auth'
+import { FALLBACK_PORTAL_META, PORTAL_META_KEY } from '@/portals/common/portalMeta'
 
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+
+/** 当前门户元信息，由各端 App.vue provide，登录页据此显示对应品牌 */
+const portalMeta = inject(PORTAL_META_KEY, FALLBACK_PORTAL_META)
 
 type Mode = 'login' | 'register'
 const mode = ref<Mode>('login')
@@ -97,8 +101,8 @@ function switchMode(m: Mode) {
       <div class="auth-brand">
         <div class="auth-logo">素</div>
         <div>
-          <div class="auth-title">{{ t('portal.auth.brandTitle') }}</div>
-          <div class="auth-sub">{{ t('portal.auth.brandSub') }}</div>
+          <div class="auth-title">{{ portalMeta.title }}</div>
+          <div class="auth-sub">{{ portalMeta.subtitle }} · {{ t('portal.auth.brandSub') }}</div>
         </div>
       </div>
 
@@ -225,7 +229,7 @@ function switchMode(m: Mode) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(1200px 600px at 20% -10%, #1d3a5f 0%, #0d1526 55%, #090d18 100%);
+  background: radial-gradient(1200px 600px at 20% -10%, #1a6b5c 0%, #124d42 45%, #0d2b26 100%);
   overflow: auto;
   padding: 24px;
 }
@@ -235,7 +239,7 @@ function switchMode(m: Mode) {
   width: 560px;
   height: 560px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(56, 178, 172, 0.22) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(212, 168, 83, 0.22) 0%, transparent 65%);
   top: -160px;
   right: -120px;
   pointer-events: none;
@@ -263,7 +267,7 @@ function switchMode(m: Mode) {
   width: 46px;
   height: 46px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #38b2ac, #2b6cb0);
+  background: linear-gradient(135deg, #1a6b5c, #d4a853);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -305,7 +309,7 @@ function switchMode(m: Mode) {
 }
 
 .auth-mode-tab.is-active {
-  background: linear-gradient(135deg, #38b2ac, #2b6cb0);
+  background: linear-gradient(135deg, #1a6b5c, #d4a853);
   color: #fff;
   font-weight: 600;
 }
@@ -328,9 +332,9 @@ function switchMode(m: Mode) {
 }
 
 .auth-chip.is-active {
-  border-color: #38b2ac;
-  color: #38b2ac;
-  background: rgba(56, 178, 172, 0.1);
+  border-color: #d4a853;
+  color: #d4a853;
+  background: rgba(212, 168, 83, 0.1);
 }
 
 .auth-form {
@@ -370,8 +374,8 @@ function switchMode(m: Mode) {
 
 .auth-code-btn {
   border: none;
-  background: rgba(56, 178, 172, 0.18);
-  color: #38b2ac;
+  background: rgba(212, 168, 83, 0.18);
+  color: #d4a853;
   border-radius: 8px;
   padding: 6px 12px;
   font-size: 12px;
@@ -387,7 +391,7 @@ function switchMode(m: Mode) {
 .auth-submit {
   margin-top: 4px;
   border: none;
-  background: linear-gradient(135deg, #38b2ac, #2b6cb0);
+  background: linear-gradient(135deg, #1a6b5c, #d4a853);
   color: #fff;
   font-size: 15px;
   font-weight: 600;

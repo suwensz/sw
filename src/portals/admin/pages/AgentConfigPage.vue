@@ -24,7 +24,7 @@ function deactivateAll() {
 
 <template>
   <div class="portal-page">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px">
+    <div class="portal-page-head">
       <h2 style="margin: 0">{{ t('admin.menu.agentConfig') }}</h2>
       <div>
         <el-button size="small" type="primary" @click="activateAll">
